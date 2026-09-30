@@ -1,4 +1,5 @@
 mod credentials;
+mod provider_runtime;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -7,7 +8,8 @@ pub fn run() {
             credentials::set_provider_api_key,
             credentials::delete_provider_api_key,
             credentials::provider_credential_status,
-            credentials::verify_provider_api_key
+            credentials::verify_provider_api_key,
+            provider_runtime::count_prompt_tokens
         ])
         .run(tauri::generate_context!())
         .expect("error while running Humanizer");
