@@ -99,6 +99,31 @@ describe("Prompt IR", () => {
     expect(tools?.full).toContain("Do not use external tools")
   })
 
+  it("preserves tool settings in compact guidance", () => {
+    const proactive = buildPromptIR({
+      ...profile,
+      tools: {
+        usage: "proactive",
+        confirmExternalActions: false,
+        preferReadOnly: false
+      }
+    }).blocks.find((block) => block.id === "tools")
+
+    const cautious = buildPromptIR({
+      ...profile,
+      tools: {
+        usage: "when-useful",
+        confirmExternalActions: true,
+        preferReadOnly: true
+      }
+    }).blocks.find((block) => block.id === "tools")
+
+    expect(proactive?.compact).toContain("proactively")
+    expect(proactive?.compact).not.toContain("read-only")
+    expect(cautious?.compact).toContain("Inspect read-only first")
+    expect(cautious?.compact).toContain("Confirm consequential external actions")
+  })
+
   it("keeps consequential action confirmation explicit", () => {
     const tools = buildPromptIR(profile).blocks.find((block) => block.id === "tools")
 
