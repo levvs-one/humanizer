@@ -10,6 +10,7 @@ import {
   type PlanId,
   type ProfileDocument,
   type PromptBrief,
+  type PromptDiagnostic,
   type PromptDraftDocument,
   type PromptOptimization,
   type ProviderId
@@ -46,6 +47,34 @@ function formatTokens(value: number | null): string {
   }
   if (value >= 1_000) return Math.round(value / 1_000) + "K tokens"
   return value.toLocaleString() + " tokens"
+}
+
+
+function PromptInspector({ diagnostics }: { diagnostics: PromptDiagnostic[] }) {
+  return (
+    <section className="prompt-inspector" aria-label="Prompt inspector">
+      <div className="prompt-inspector-heading">
+        <h3>Inspector</h3>
+        <span>{diagnostics.length === 0 ? "No issues" : diagnostics.length + " found"}</span>
+      </div>
+
+      {diagnostics.length === 0 ? (
+        <p className="prompt-inspector-empty">No structural issues found.</p>
+      ) : (
+        <div className="prompt-diagnostic-list">
+          {diagnostics.map((diagnostic, index) => (
+            <div
+              className={"prompt-diagnostic " + diagnostic.severity}
+              key={diagnostic.code + "-" + index}
+            >
+              <p>{diagnostic.message}</p>
+              <span>{diagnostic.severity}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
 }
 
 function createDefaultDraft(profileId: string): PromptDraftDocument {
@@ -528,11 +557,7 @@ export default function PromptStudioView({
 
           <pre className="prompt-output">{result.text}</pre>
 
-          {result.warnings.length ? (
-            <div className="warnings">
-              {result.warnings.map((warning) => <p key={warning}>{warning}</p>)}
-            </div>
-          ) : null}
+          <PromptInspector diagnostics={result.diagnostics} />
 
           <div className="source-note studio-source-note">
             <a href={activeModel.source.url} target="_blank" rel="noreferrer">Model source</a>
