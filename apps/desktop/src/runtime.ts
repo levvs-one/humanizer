@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core"
+import { Channel, invoke } from "@tauri-apps/api/core"
 import type { ProviderId } from "@humanizer/core"
 
 export interface ExecutePromptRequest {
@@ -23,6 +23,19 @@ export interface TokenCountResponse {
   inputTokens: number
 }
 
+export type ProviderStreamEvent =
+  | { event: "started"; data: { runId: string } }
+  | { event: "delta"; data: { text: string } }
+  | {
+      event: "usage"
+      data: {
+        inputTokens: number | null
+        outputTokens: number | null
+      }
+    }
+  | { event: "error"; data: { message: string } }
+  | { event: "finished"; data: { cancelled: boolean } }
+
 export function supportsExactTokenPreflight(provider: ProviderId): boolean {
   return provider === "anthropic" || provider === "google"
 }
@@ -33,6 +46,25 @@ export async function executeProviderPrompt(
   return invoke<ExecutePromptResponse>("execute_provider_prompt", {
     request
   })
+}
+
+export async function streamProviderPrompt(
+  request: ExecutePromptRequest,
+  runId: string,
+  onEvent: (event: ProviderStreamEvent) => void
+): Promise<void> {
+  const channel = new Channel<ProviderStreamEvent>()
+  channel.onmessage = onEvent
+
+  await invoke("stream_provider_prompt", {
+    request,
+    runId,
+    onEvent: channel
+  })
+}
+
+export async function cancelProviderStream(runId: string): Promise<boolean> {
+  return invoke<boolean>("cancel_provider_stream", { runId })
 }
 
 export async function countProviderTokens(
