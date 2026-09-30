@@ -14,6 +14,7 @@ import {
   type PromptDiagnostic,
   type PromptDraftDocument,
   type PromptOptimization,
+  type PromptPurpose,
   type ProviderId
 } from "@humanizer/core"
 import {
@@ -229,7 +230,10 @@ export default function PromptStudioView({
     })
   }
 
-  function updateBrief(field: keyof PromptBrief, value: string) {
+  function updateBrief(
+    field: "goal" | "context" | "output" | "constraints",
+    value: string
+  ) {
     patchDraft({
       brief: {
         ...activeDraft.brief,
@@ -237,6 +241,21 @@ export default function PromptStudioView({
       }
     })
   }
+
+  function choosePurpose(value: string) {
+    const { purpose: _purpose, ...rest } = activeDraft.brief
+
+    patchDraft({
+      brief:
+        value === ""
+          ? rest
+          : {
+              ...rest,
+              purpose: value as PromptPurpose
+            }
+    })
+  }
+
 
   function newDraft() {
     const next = createDefaultDraft(activeProfile.id)
@@ -457,6 +476,26 @@ export default function PromptStudioView({
             <div className="panel-heading">
               <h2>Prompt brief</h2>
               <p>Describe intent and constraints. Humanizer owns the structure.</p>
+            </div>
+
+            <div className="field">
+              <div className="field-heading">
+                <label>Use case</label>
+                <span>Changes the compiler's working strategy</span>
+              </div>
+              <select
+                value={activeDraft.brief.purpose ?? ""}
+                onChange={(event) => choosePurpose(event.target.value)}
+              >
+                <option value="">
+                  Profile default ({activeProfile.profile.purpose})
+                </option>
+                <option value="general">General</option>
+                <option value="engineering">Engineering</option>
+                <option value="research">Research</option>
+                <option value="writing">Writing</option>
+                <option value="agent">Agent</option>
+              </select>
             </div>
 
             <div className="field">
