@@ -28,6 +28,14 @@ pub struct ExecutePromptResponse {
     output_tokens: Option<u64>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenCountResponse {
+    provider: String,
+    model: String,
+    input_tokens: u64,
+}
+
 fn normalize_provider(provider: &str) -> Result<&'static str, String> {
     match provider.trim().to_ascii_lowercase().as_str() {
         "openai" => Ok("openai"),
@@ -106,6 +114,34 @@ fn build_google_payload(request: &ExecutePromptRequest) -> Result<Value, String>
             "role": "user",
             "parts": [{ "text": runtime_input(request)? }]
         }]
+    }))
+}
+
+
+fn build_anthropic_count_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
+    if request.instruction_role == "user" {
+        return Ok(json!({
+            "model": request.model,
+            "messages": [{
+                "role": "user",
+                "content": request.prompt
+            }]
+        }));
+    }
+
+    Ok(json!({
+        "model": request.model,
+        "system": request.prompt,
+        "messages": [{
+            "role": "user",
+            "content": runtime_input(request)?
+        }]
+    }))
+}
+
+fn build_google_count_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
+    Ok(json!({
+        "generateContentRequest": build_google_payload(request)?
     }))
 }
 
@@ -293,6 +329,68 @@ async fn execute_google(
     })
 }
 
+async fn count_anthropic_tokens(
+    client: &Client,
+    request: &ExecutePromptRequest,
+    secret: &str,
+) -> Result<TokenCountResponse, String> {
+    let body = response_json(
+        client
+            .post("https://api.anthropic.com/v1/messages/count_tokens")
+            .header("x-api-key", secret)
+            .header("anthropic-version", ANTHROPIC_VERSION)
+            .json(&build_anthropic_count_payload(request)?)
+            .send()
+            .await
+            .map_err(network_error)?,
+    )
+    .await?;
+
+    let input_tokens = body
+        .get("input_tokens")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| "Anthropic returned no token count.".to_string())?;
+
+    Ok(TokenCountResponse {
+        provider: "anthropic".to_string(),
+        model: request.model.clone(),
+        input_tokens,
+    })
+}
+
+async fn count_google_tokens(
+    client: &Client,
+    request: &ExecutePromptRequest,
+    secret: &str,
+) -> Result<TokenCountResponse, String> {
+    let url = format!(
+        "https://generativelanguage.googleapis.com/v1beta/models/{}:countTokens",
+        request.model
+    );
+
+    let body = response_json(
+        client
+            .post(url)
+            .header("x-goog-api-key", secret)
+            .json(&build_google_count_payload(request)?)
+            .send()
+            .await
+            .map_err(network_error)?,
+    )
+    .await?;
+
+    let input_tokens = body
+        .get("totalTokens")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| "Google returned no token count.".to_string())?;
+
+    Ok(TokenCountResponse {
+        provider: "google".to_string(),
+        model: request.model.clone(),
+        input_tokens,
+    })
+}
+
 fn network_error(error: reqwest::Error) -> String {
     if error.is_timeout() {
         "Provider request timed out.".to_string()
@@ -325,11 +423,41 @@ pub async fn execute_provider_prompt(
     }
 }
 
+#[tauri::command]
+pub async fn count_provider_tokens(
+    request: ExecutePromptRequest,
+) -> Result<TokenCountResponse, String> {
+    let provider = normalize_provider(&request.provider)?;
+
+    if request.model.trim().is_empty() || request.prompt.trim().is_empty() {
+        return Err("Model and compiled prompt are required.".to_string());
+    }
+
+    if provider == "openai" {
+        return Err(
+            "Exact OpenAI preflight token counting is not available in Humanizer yet.".to_string(),
+        );
+    }
+
+    let secret = read_secret(provider)?;
+    let client = Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|error| error.to_string())?;
+
+    match provider {
+        "anthropic" => count_anthropic_tokens(&client, &request, &secret).await,
+        "google" => count_google_tokens(&client, &request, &secret).await,
+        _ => unreachable!(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        build_anthropic_payload, build_google_payload, build_openai_payload, parse_anthropic,
-        parse_google, parse_openai, ExecutePromptRequest,
+        build_anthropic_count_payload, build_anthropic_payload, build_google_count_payload,
+        build_google_payload, build_openai_payload, parse_anthropic, parse_google, parse_openai,
+        ExecutePromptRequest,
     };
     use serde_json::json;
 
@@ -379,6 +507,33 @@ mod tests {
             "Compiled prompt"
         );
         assert_eq!(payload["contents"][0]["parts"][0]["text"], "Review this.");
+    }
+
+    #[test]
+    fn anthropic_token_count_uses_the_same_instruction_shape_without_output_budget() {
+        let payload =
+            build_anthropic_count_payload(&request("anthropic", "system", Some("Review this.")))
+                .unwrap();
+
+        assert_eq!(payload["model"], "model-id");
+        assert_eq!(payload["system"], "Compiled prompt");
+        assert_eq!(payload["messages"][0]["content"], "Review this.");
+        assert!(payload.get("max_tokens").is_none());
+    }
+
+    #[test]
+    fn google_token_count_wraps_the_generate_content_request() {
+        let payload =
+            build_google_count_payload(&request("google", "system", Some("Review this."))).unwrap();
+
+        assert_eq!(
+            payload["generateContentRequest"]["system_instruction"]["parts"][0]["text"],
+            "Compiled prompt"
+        );
+        assert_eq!(
+            payload["generateContentRequest"]["contents"][0]["parts"][0]["text"],
+            "Review this."
+        );
     }
 
     #[test]

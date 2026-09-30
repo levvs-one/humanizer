@@ -80,3 +80,36 @@ Provider retention and data-processing behavior remains subject to the provider 
 This runtime is for manually executing a compiled prompt from Prompt Studio.
 
 It is not the future Humanizer conversation runtime. Multi-turn state, tools, research routing, streaming, and agent loops belong to the runtime layer that will build on the same native adapters.
+
+
+## Token preflight
+
+Humanizer can ask the provider to count the exact request context before execution where the provider exposes a supported counting endpoint.
+
+### Anthropic
+
+Humanizer uses:
+
+```text
+POST https://api.anthropic.com/v1/messages/count_tokens
+```
+
+The payload mirrors the selected system or user prompt shape. For system instructions, the count includes the explicit runtime input because that input is part of the request context.
+
+### Gemini
+
+Humanizer uses:
+
+```text
+POST https://generativelanguage.googleapis.com/v1beta/models/{model}:countTokens
+```
+
+The request wraps the same `generateContentRequest` shape used for execution so system instructions and runtime input are counted together.
+
+### OpenAI
+
+Humanizer does not display an estimated preflight token count for OpenAI.
+
+Until the runtime has an exact supported mechanism for the selected OpenAI model, the UI shows character limits where those are verified and provider-reported token usage after a real run. A character-to-token guess would look precise while being wrong across languages, models, and prompt structure.
+
+Token preflight is never a replacement for a verified hard surface limit. Character constraints and model context limits remain separate concepts.

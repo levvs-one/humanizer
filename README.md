@@ -61,6 +61,7 @@ docs/
   registry.md
   adding-a-target.md
   export-formats.md
+  provider-runtime.md
 ```
 
 ## Development
@@ -86,7 +87,9 @@ pnpm build
 
 ## Status
 
-The repository is in active foundation work. The first milestone is a clean Prompt Studio with source-backed target constraints, deterministic compilation, local profiles, and before/after testing.
+Humanizer is in alpha. The core desktop workflow is operational: profiles and prompt drafts persist locally, Prompt Studio compiles against source-backed model and surface metadata, inspects the result, exports target-aware artifacts, and can execute supported API targets through the native credential boundary.
+
+Test and Integrations remain intentionally disabled in the interface until their underlying runtime workflows are real rather than placeholder screens.
 
 ## Contributing
 

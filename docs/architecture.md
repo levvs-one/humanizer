@@ -57,7 +57,11 @@ If critical intent cannot fit, compilation reports that honestly instead of sile
 
 ## Boundaries
 
-The initial desktop app is local-first. API keys will live in the operating-system credential store when provider calls are introduced. Humanizer servers are not required to proxy model traffic.
+The desktop app is local-first. Provider API keys live in the operating-system credential store and are read only by the native Tauri layer when a provider request is sent. Saved keys are never returned to the React interface.
+
+Prompt Studio can execute compiled prompts directly through native OpenAI, Anthropic, and Gemini adapters. Humanizer servers are not required to proxy model traffic.
+
+Where a provider exposes a supported token-count endpoint, the same native layer can perform exact preflight counting. Humanizer does not substitute heuristic character-to-token estimates when an exact count is unavailable.
 
 Remote services are reserved for signed registry updates, optional sync, releases, and opt-in diagnostics.
 
@@ -65,9 +69,8 @@ Remote services are reserved for signed registry updates, optional sync, release
 
 The monorepo is intentionally small at the start. Split packages only when boundaries become real:
 
-- provider adapters
-- tokenizer integrations
-- profile persistence
+- conversation runtime
+- profile inheritance
 - evaluation harness
 - MCP server
 - research policy engine
