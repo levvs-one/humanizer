@@ -6,6 +6,7 @@ const profile: BehaviorProfile = {
   role: "Principal software engineer",
   objective: "Ship reliable systems.",
   purpose: "engineering",
+  customRules: [],
   communication: {
     naturalness: 90,
     directness: 90,
@@ -63,6 +64,18 @@ describe("Prompt IR", () => {
     expect(ir.purpose).toBe("research")
     expect(strategy?.full).toContain("primary sources")
     expect(strategy?.full).not.toContain("smallest production-safe change")
+  })
+
+  it("keeps custom rules as required prompt intent", () => {
+    const ir = buildPromptIR({
+      ...profile,
+      customRules: ["Never fabricate completed actions.", "Keep file paths exact."]
+    })
+    const rules = ir.blocks.find((block) => block.id === "rules")
+
+    expect(rules?.required).toBe(true)
+    expect(rules?.full).toContain("Never fabricate completed actions.")
+    expect(rules?.full).toContain("Keep file paths exact.")
   })
 
   it("encodes anti-slop behavior without fake human mistakes", () => {
