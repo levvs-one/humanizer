@@ -9,9 +9,11 @@ Human intent
     ↓
 Behavior profile
     ↓
+Task brief
+    ↓
 Prompt IR
     ↓
-Target surface
+Model + target surface
     ↓
 Provider adapter
     ↓
@@ -43,7 +45,9 @@ Each surface owns its verified limits, supported capabilities, source URL, and v
 
 ### Prompt IR
 
-Prompt IR is the stable intermediate representation between user intent and provider-specific text. The compiler can change wording without changing the profile schema.
+Prompt IR is the stable intermediate representation between user intent and provider-specific text. Prompt IR v2 combines the active behavior profile with an optional task brief containing the task, context, expected output, and hard constraints.
+
+The renderer can change ordering and syntax by target. User prompts put the task first. Persistent, system, and developer instructions put behavior first. Provider formatting can also differ without changing the profile schema.
 
 ### Constraint optimizer
 
