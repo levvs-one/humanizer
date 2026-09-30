@@ -1,0 +1,25 @@
+name: Feature request
+description: Propose a product or architecture improvement
+title: "feature: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Describe the problem before proposing the interface.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should Humanizer do differently?
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or constraints
+      description: Link official platform documentation when the request depends on provider behavior or limits.

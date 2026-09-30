@@ -1,0 +1,23 @@
+{
+  "name": "humanizer",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.17.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @humanizer/desktop dev",
+    "desktop": "pnpm --filter @humanizer/desktop tauri:dev",
+    "build": "pnpm --filter @humanizer/desktop build",
+    "typecheck": "pnpm --filter @humanizer/core typecheck && pnpm --filter @humanizer/desktop typecheck",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.4",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
