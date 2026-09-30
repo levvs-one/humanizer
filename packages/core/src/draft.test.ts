@@ -19,6 +19,7 @@ describe("prompt draft documents", () => {
         optimization: "maximum-fidelity"
       },
       brief: {
+        purpose: "research",
         goal: "Review the service.",
         context: "TypeScript.",
         output: "Return the root cause.",
@@ -29,6 +30,7 @@ describe("prompt draft documents", () => {
 
     expect(parsePromptDraftDocument(serializePromptDraftDocument(draft))).toEqual(draft)
     expect(draft.target.optimization).toBe("maximum-fidelity")
+    expect(draft.brief.purpose).toBe("research")
   })
 
   it("updates content without changing creation time", () => {
