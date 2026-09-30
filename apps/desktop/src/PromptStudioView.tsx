@@ -21,6 +21,13 @@ import {
   type ProviderId
 } from "@humanizer/core"
 import {
+  loadConversationSessions,
+  removeConversationSession,
+  saveConversationSessions,
+  upsertConversationSession,
+  type ConversationSession
+} from "./conversation-storage"
+import {
   downloadCompiledPrompt,
   downloadPromptDraft,
   loadActivePromptDraftId,
@@ -153,8 +160,8 @@ export default function PromptStudioView({
     response: ExecutePromptResponse
   } | null>(null)
   const [conversationSessions, setConversationSessions] = useState<
-    Record<string, RuntimeMessage[]>
-  >({})
+    ConversationSession[]
+  >(() => loadConversationSessions())
 
   const draft = drafts.find((entry) => entry.id === activeDraftId) ?? drafts[0]
 
@@ -167,6 +174,10 @@ export default function PromptStudioView({
       saveActivePromptDraftId(draft.id)
     }
   }, [draft?.id])
+
+  useEffect(() => {
+    saveConversationSessions(conversationSessions)
+  }, [conversationSessions])
 
   if (!draft) {
     return null
@@ -230,7 +241,8 @@ export default function PromptStudioView({
     activeSurface.id,
     result.text
   ].join("\u0000")
-  const conversationHistory = conversationSessions[conversationKey] ?? []
+  const conversationHistory =
+    conversationSessions.find((session) => session.key === conversationKey)?.messages ?? []
   const currentExecution =
     execution &&
     execution.draftId === activeDraft.id &&
@@ -568,14 +580,21 @@ export default function PromptStudioView({
               runRuntimeInput.length > 0 &&
               completedText.trim().length > 0
             ) {
-              setConversationSessions((current) => ({
-                ...current,
-                [runConversationKey]: [
-                  ...(current[runConversationKey] ?? runHistory),
-                  { role: "user", text: runRuntimeInput },
-                  { role: "assistant", text: completedText.trim() }
-                ]
-              }))
+              setConversationSessions((current) => {
+                const existing =
+                  current.find((session) => session.key === runConversationKey)?.messages ??
+                  runHistory
+
+                return upsertConversationSession(
+                  current,
+                  runConversationKey,
+                  [
+                    ...existing,
+                    { role: "user", text: runRuntimeInput },
+                    { role: "assistant", text: completedText.trim() }
+                  ]
+                )
+              })
               setRunInputs((current) => ({
                 ...current,
                 [runDraftId]: ""
@@ -611,11 +630,9 @@ export default function PromptStudioView({
   }
 
   function clearConversation() {
-    setConversationSessions((current) => {
-      const next = { ...current }
-      delete next[conversationKey]
-      return next
-    })
+    setConversationSessions((current) =>
+      removeConversationSession(current, conversationKey)
+    )
     setExecution(null)
     setExecutionError(null)
     setTokenCount(null)
