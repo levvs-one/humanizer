@@ -28,3 +28,18 @@ export async function deleteProviderApiKey(
     provider
   })
 }
+
+export interface ProviderVerification {
+  provider: CredentialProvider
+  ok: boolean
+  statusCode: number
+  message: string
+}
+
+export async function verifyProviderApiKey(
+  provider: CredentialProvider
+): Promise<ProviderVerification> {
+  return invoke<ProviderVerification>("verify_provider_api_key", {
+    provider
+  })
+}

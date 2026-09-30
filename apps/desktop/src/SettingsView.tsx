@@ -3,6 +3,7 @@ import {
   deleteProviderApiKey,
   getCredentialStatus,
   saveProviderApiKey,
+  verifyProviderApiKey,
   type CredentialProvider,
   type CredentialStatus
 } from "./credentials"
@@ -85,6 +86,21 @@ function ProviderCredentialRow({
     }
   }
 
+
+  async function verify() {
+    setBusy(true)
+    setMessage(null)
+
+    try {
+      const result = await verifyProviderApiKey(provider.id)
+      setMessage(result.message)
+    } catch (reason) {
+      setMessage(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <section className="provider-row">
       <div className="provider-copy">
@@ -124,14 +140,24 @@ function ProviderCredentialRow({
           </button>
 
           {configured ? (
-            <button
-              className="secondary-button"
-              type="button"
-              disabled={busy}
-              onClick={() => void remove()}
-            >
-              Remove
-            </button>
+            <>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={busy}
+                onClick={() => void verify()}
+              >
+                Verify
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={busy}
+                onClick={() => void remove()}
+              >
+                Remove
+              </button>
+            </>
           ) : null}
         </div>
 
