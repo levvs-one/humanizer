@@ -1104,3 +1104,76 @@ select:focus {
   gap: 20px;
   margin-top: 22px;
 }
+
+
+.prompt-inspector {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #ececef;
+}
+
+.prompt-inspector-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.prompt-inspector-heading h3 {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 620;
+}
+
+.prompt-inspector-heading span,
+.prompt-inspector-empty {
+  color: #8a8a8f;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.prompt-inspector-empty {
+  margin: 10px 0 0;
+}
+
+.prompt-diagnostic-list {
+  display: grid;
+  margin-top: 10px;
+}
+
+.prompt-diagnostic {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid #f0f0f2;
+}
+
+.prompt-diagnostic:first-child {
+  border-top: 0;
+}
+
+.prompt-diagnostic p {
+  margin: 0;
+  color: #4d4d52;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.prompt-diagnostic > span {
+  color: #8a8a8f;
+  font-size: 10px;
+  line-height: 1.5;
+  text-transform: capitalize;
+}
+
+.prompt-diagnostic.warning > span {
+  color: #8a6116;
+}
+
+.prompt-diagnostic.error > span {
+  color: #b42318;
+}
