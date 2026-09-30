@@ -2,6 +2,7 @@ import type {
   PlanId,
   PromptBrief,
   PromptOptimization,
+  PromptPurpose,
   PromptTarget
 } from "./types"
 
@@ -33,6 +34,14 @@ const EMPTY_BRIEF: PromptBrief = {
   output: "",
   constraints: ""
 }
+
+const PROMPT_PURPOSES: readonly PromptPurpose[] = [
+  "general",
+  "engineering",
+  "research",
+  "writing",
+  "agent"
+]
 
 const OPTIMIZATION_MODES: readonly PromptOptimization[] = [
   "compact",
@@ -66,6 +75,9 @@ function isPromptBrief(value: unknown): value is PromptBrief {
   if (!isRecord(value)) return false
 
   return (
+    (value.purpose === undefined ||
+      (typeof value.purpose === "string" &&
+        PROMPT_PURPOSES.includes(value.purpose as PromptPurpose))) &&
     typeof value.goal === "string" &&
     typeof value.context === "string" &&
     typeof value.output === "string" &&
