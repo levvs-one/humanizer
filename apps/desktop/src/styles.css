@@ -872,3 +872,78 @@ select:focus {
     gap: 16px;
   }
 }
+
+
+.nav-item:disabled {
+  background: transparent;
+  color: #a1a1a6;
+  cursor: default;
+}
+
+.nav-item:disabled:hover {
+  background: transparent;
+}
+
+.two-column-fields > .field {
+  margin-top: 0;
+}
+
+.target-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 20px 0 0;
+  overflow: hidden;
+  border: 1px solid #ececef;
+  border-radius: 11px;
+  background: #ececef;
+}
+
+.target-facts div {
+  min-width: 0;
+  padding: 11px 12px;
+  background: #fafafa;
+}
+
+.target-facts dt,
+.target-facts dd {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.target-facts dt {
+  margin-bottom: 3px;
+  color: #8a8a8f;
+}
+
+.target-facts dd {
+  overflow: hidden;
+  color: #3a3a3c;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.prompt-detail-grid {
+  margin-top: 18px;
+}
+
+.compact-summary-panel .panel-heading {
+  margin-bottom: 14px;
+}
+
+.compact-summary-panel .target-facts {
+  margin-top: 0;
+}
+
+.studio-source-note {
+  margin-top: 16px;
+}
+
+@media (max-width: 620px) {
+  .target-facts {
+    grid-template-columns: 1fr;
+  }
+}
