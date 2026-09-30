@@ -1,5 +1,11 @@
 import { BEHAVIOR_FIELD_PATHS, type BehaviorFieldPath } from "./profile"
-import type { BehaviorProfile, PromptPurpose, UncertaintyHandling, Verbosity } from "./types"
+import type {
+  BehaviorProfile,
+  PromptPurpose,
+  ToolUsePolicy,
+  UncertaintyHandling,
+  Verbosity
+} from "./types"
 
 export type BehaviorOverrideValue = string | number | boolean | string[]
 
@@ -21,6 +27,12 @@ const UNCERTAINTY_HANDLING: readonly UncertaintyHandling[] = [
   "quiet",
   "explicit",
   "strict"
+]
+
+const TOOL_USE_POLICIES: readonly ToolUsePolicy[] = [
+  "off",
+  "when-useful",
+  "proactive"
 ]
 
 function isBehaviorScore(value: unknown): value is number {
@@ -67,8 +79,15 @@ export function isBehaviorOverrideValue(
         typeof value === "string" &&
         UNCERTAINTY_HANDLING.includes(value as UncertaintyHandling)
       )
+    case "tools.usage":
+      return (
+        typeof value === "string" &&
+        TOOL_USE_POLICIES.includes(value as ToolUsePolicy)
+      )
     case "research.preferPrimarySources":
     case "research.allowCommunitySources":
+    case "tools.confirmExternalActions":
+    case "tools.preferReadOnly":
     case "writing.avoidAISlop":
     case "writing.avoidUnnecessaryHeadings":
     case "writing.avoidRestatingPrompt":
@@ -157,6 +176,15 @@ export function applyBehaviorOverrides(
         break
       case "research.allowCommunitySources":
         profile.research.allowCommunitySources = value as boolean
+        break
+      case "tools.usage":
+        profile.tools.usage = value as ToolUsePolicy
+        break
+      case "tools.confirmExternalActions":
+        profile.tools.confirmExternalActions = value as boolean
+        break
+      case "tools.preferReadOnly":
+        profile.tools.preferReadOnly = value as boolean
         break
       case "writing.avoidAISlop":
         profile.writing.avoidAISlop = value as boolean
