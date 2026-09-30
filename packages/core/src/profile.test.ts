@@ -386,6 +386,28 @@ describe("profile documents", () => {
     expect(migrated.updatedAt).toBe("2026-09-02T00:00:00.000Z")
   })
 
+  it("rejects non-string tool policy values", () => {
+    const document = createProfileDocument({
+      id: "invalid-tools",
+      name: "Invalid tools",
+      profile
+    })
+    const malformed = {
+      ...document,
+      profile: {
+        ...document.profile,
+        tools: {
+          ...document.profile.tools,
+          usage: ["off"]
+        }
+      }
+    }
+
+    expect(() => parseProfileDocument(JSON.stringify(malformed))).toThrow(
+      "invalid or incomplete"
+    )
+  })
+
   it("rejects malformed imports", () => {
     expect(() => parseProfileDocument('{"schemaVersion":3}')).toThrow(
       "Profile file is invalid or incomplete."
