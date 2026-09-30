@@ -323,6 +323,14 @@ export default function PromptStudioView({
   ].join("\u0000")
   const currentTokenCount =
     tokenCount?.signature === tokenCountSignature ? tokenCount.inputTokens : null
+  const inputExceedsContext =
+    currentTokenCount !== null &&
+    activeModel.contextWindowTokens !== null &&
+    currentTokenCount > activeModel.contextWindowTokens
+  const contextOverflowTokens =
+    inputExceedsContext && activeModel.contextWindowTokens !== null
+      ? currentTokenCount - activeModel.contextWindowTokens
+      : 0
   const canPreflightTokens =
     isApiTarget &&
     supportsExactTokenPreflight(activeModel.provider) &&
@@ -333,6 +341,7 @@ export default function PromptStudioView({
   const canExecute =
     isApiTarget &&
     !hasBlockingDiagnostic &&
+    !inputExceedsContext &&
     (activeSurface.instructionRole !== "user" ||
       activeDraft.brief.goal.trim().length > 0) &&
     (!requiresRuntimeInput || runtimeInput.trim().length > 0)
@@ -1363,7 +1372,14 @@ export default function PromptStudioView({
 
             <div className="count-row-actions">
               {currentTokenCount !== null ? (
-                <span>{currentTokenCount.toLocaleString()} input tokens</span>
+                <span>
+                  {currentTokenCount.toLocaleString()} input tokens
+                  {activeModel.contextWindowTokens !== null
+                    ? " · " +
+                      activeModel.contextWindowTokens.toLocaleString() +
+                      " context"
+                    : ""}
+                </span>
               ) : null}
               {result.compactedBlocks.length ? (
                 <span>{result.compactedBlocks.length} compacted</span>
@@ -1387,6 +1403,14 @@ export default function PromptStudioView({
 
           {tokenCountError ? (
             <p className="token-count-error">{tokenCountError}</p>
+          ) : null}
+
+          {inputExceedsContext ? (
+            <p className="token-count-error">
+              Exact preflight exceeds {activeModel.label}&apos;s verified context window by{" "}
+              {contextOverflowTokens.toLocaleString()} input tokens. Shorten the prompt,
+              runtime input, or conversation before running it.
+            </p>
           ) : null}
 
           <pre className="prompt-output">{result.text}</pre>
