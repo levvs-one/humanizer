@@ -33,7 +33,8 @@ import {
   countProviderTokens,
   streamProviderPrompt,
   supportsExactTokenPreflight,
-  type ExecutePromptResponse
+  type ExecutePromptResponse,
+  type RuntimeMessage
 } from "./runtime"
 
 const plans: Array<{ value: PlanId; label: string }> = [
@@ -151,6 +152,9 @@ export default function PromptStudioView({
     surfaceId: string
     response: ExecutePromptResponse
   } | null>(null)
+  const [conversationSessions, setConversationSessions] = useState<
+    Record<string, RuntimeMessage[]>
+  >({})
 
   const draft = drafts.find((entry) => entry.id === activeDraftId) ?? drafts[0]
 
@@ -218,7 +222,15 @@ export default function PromptStudioView({
   const targetExport = buildTargetExport(result)
   const isApiTarget = activeSurface.product.endsWith("API")
   const requiresRuntimeInput = activeSurface.instructionRole !== "user"
+  const supportsConversation = isApiTarget && requiresRuntimeInput
   const runtimeInput = runInputs[activeDraft.id] ?? ""
+  const conversationKey = [
+    activeDraft.id,
+    activeModel.id,
+    activeSurface.id,
+    result.text
+  ].join("\u0000")
+  const conversationHistory = conversationSessions[conversationKey] ?? []
   const currentExecution =
     execution &&
     execution.draftId === activeDraft.id &&
@@ -231,7 +243,8 @@ export default function PromptStudioView({
     activeModel.id,
     activeSurface.id,
     result.text,
-    requiresRuntimeInput ? runtimeInput : ""
+    requiresRuntimeInput ? runtimeInput : "",
+    JSON.stringify(conversationHistory)
   ].join("\u0000")
   const currentTokenCount =
     tokenCount?.signature === tokenCountSignature ? tokenCount.inputTokens : null
@@ -426,7 +439,8 @@ export default function PromptStudioView({
         model: activeModel.id,
         instructionRole: activeSurface.instructionRole,
         prompt: result.text,
-        ...(requiresRuntimeInput ? { runtimeInput } : {})
+        ...(requiresRuntimeInput ? { runtimeInput } : {}),
+        ...(supportsConversation ? { history: conversationHistory } : {})
       })
 
       setTokenCount({
@@ -453,6 +467,11 @@ export default function PromptStudioView({
     const runModelId = activeModel.id
     const runSurfaceId = activeSurface.id
     const runProvider = activeModel.provider
+    const runRuntimeInput = runtimeInput.trim()
+    const runConversationKey = conversationKey
+    const runHistory = supportsConversation ? [...conversationHistory] : []
+    let completedText = ""
+    let runFailed = false
 
     setExecuting(true)
     setActiveRunId(runId)
@@ -477,11 +496,13 @@ export default function PromptStudioView({
           model: runModelId,
           instructionRole: activeSurface.instructionRole,
           prompt: result.text,
-          ...(requiresRuntimeInput ? { runtimeInput } : {})
+          ...(requiresRuntimeInput ? { runtimeInput: runRuntimeInput } : {}),
+          ...(supportsConversation ? { history: runHistory } : {})
         },
         runId,
         (event) => {
           if (event.event === "delta") {
+            completedText += event.data.text
             setExecution((current) => {
               if (
                 !current ||
@@ -534,11 +555,33 @@ export default function PromptStudioView({
           }
 
           if (event.event === "error") {
+            runFailed = true
             setExecutionError(event.data.message)
             return
           }
 
           if (event.event === "finished") {
+            if (
+              supportsConversation &&
+              !event.data.cancelled &&
+              !runFailed &&
+              runRuntimeInput.length > 0 &&
+              completedText.trim().length > 0
+            ) {
+              setConversationSessions((current) => ({
+                ...current,
+                [runConversationKey]: [
+                  ...(current[runConversationKey] ?? runHistory),
+                  { role: "user", text: runRuntimeInput },
+                  { role: "assistant", text: completedText.trim() }
+                ]
+              }))
+              setRunInputs((current) => ({
+                ...current,
+                [runDraftId]: ""
+              }))
+            }
+
             setExecuting(false)
             setActiveRunId((current) => (current === runId ? null : current))
           }
