@@ -11,6 +11,11 @@ export interface ConversationSession {
   updatedAt: string
 }
 
+export interface LoadedConversationSessions {
+  sessions: ConversationSession[]
+  storageAvailable: boolean
+}
+
 interface ConversationStore {
   schemaVersion: typeof SCHEMA_VERSION
   sessions: ConversationSession[]
@@ -97,20 +102,20 @@ function normalizeSessions(
     .slice(0, MAX_SESSIONS)
 }
 
-export function loadConversationSessions(): ConversationSession[] {
-  const serialized = window.localStorage.getItem(STORAGE_KEY)
-  if (!serialized) {
-    return []
-  }
-
+export function loadConversationSessions(): LoadedConversationSessions {
   try {
+    const serialized = window.localStorage.getItem(STORAGE_KEY)
+    if (!serialized) {
+      return { sessions: [], storageAvailable: true }
+    }
+
     const value: unknown = JSON.parse(serialized)
     if (
       typeof value !== "object" ||
       value === null ||
       Array.isArray(value)
     ) {
-      return []
+      return { sessions: [], storageAvailable: true }
     }
 
     const record = value as Record<string, unknown>
@@ -118,26 +123,34 @@ export function loadConversationSessions(): ConversationSession[] {
       record.schemaVersion !== SCHEMA_VERSION ||
       !Array.isArray(record.sessions)
     ) {
-      return []
+      return { sessions: [], storageAvailable: true }
     }
 
-    return normalizeSessions(
-      record.sessions.filter(isConversationSession)
-    )
+    return {
+      sessions: normalizeSessions(
+        record.sessions.filter(isConversationSession)
+      ),
+      storageAvailable: true
+    }
   } catch {
-    return []
+    return { sessions: [], storageAvailable: false }
   }
 }
 
 export function saveConversationSessions(
   sessions: readonly ConversationSession[]
-): void {
-  const store: ConversationStore = {
-    schemaVersion: SCHEMA_VERSION,
-    sessions: normalizeSessions(sessions)
-  }
+): boolean {
+  try {
+    const store: ConversationStore = {
+      schemaVersion: SCHEMA_VERSION,
+      sessions: normalizeSessions(sessions)
+    }
 
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function upsertConversationSession(
