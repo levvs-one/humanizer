@@ -1,5 +1,10 @@
 export { compilePrompt } from "./compiler"
 export {
+  MODELS,
+  getModel,
+  getModelsForProvider
+} from "./models"
+export {
   PROFILE_SCHEMA_VERSION,
   createProfileDocument,
   duplicateProfileDocument,
@@ -20,10 +25,13 @@ export type {
   CompileRequest,
   CompileResult,
   CompileStatus,
+  ModelDefinition,
   PlanId,
+  PromptBrief,
   PromptPurpose,
   PromptSurface,
   PromptTarget,
   ProviderId,
+  SourceReference,
   Verbosity
 } from "./types"
