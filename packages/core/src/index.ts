@@ -1,3 +1,12 @@
+export {
+  PROMPT_DRAFT_SCHEMA_VERSION,
+  createPromptDraftDocument,
+  duplicatePromptDraftDocument,
+  parsePromptDraftDocument,
+  serializePromptDraftDocument,
+  updatePromptDraftDocument
+} from "./draft"
+export type { CreatePromptDraftInput, PromptDraftDocument } from "./draft"
 export { compilePrompt } from "./compiler"
 export {
   MODELS,
