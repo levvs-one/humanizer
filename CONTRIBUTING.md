@@ -8,6 +8,8 @@ Open an issue for large product or architecture changes. Small fixes can go dire
 
 For target-registry changes, include the official source and the date you verified it. Do not promote community reports into hard platform limits.
 
+A target surface is intentionally one of the easiest useful contributions. Read `docs/adding-a-target.md` before adding one. It defines the evidence rules, file layout, and required tests.
+
 ## Local checks
 
 ```bash
