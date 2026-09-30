@@ -1,23 +1,47 @@
+import { getModel } from "./models"
 import { buildPromptIR, type PromptIRBlock } from "./prompt-ir"
 import { getSurface, resolveCharacterLimit } from "./registry"
 import type { CompileRequest, CompileResult, PromptSurface } from "./types"
 
+function indexFor(order: readonly string[], id: string): number {
+  const index = order.indexOf(id)
+  return index === -1 ? order.length : index
+}
+
 function orderBlocks(blocks: PromptIRBlock[], surface: PromptSurface): PromptIRBlock[] {
-  if (surface.provider === "anthropic") {
-    const order = [
-      "role",
-      "objective",
-      "accuracy",
-      "research",
-      "workflow",
-      "communication",
-      "writing"
-    ]
+  const userOrder = [
+    "task",
+    "context",
+    "output",
+    "constraints",
+    "role",
+    "objective",
+    "accuracy",
+    "research",
+    "workflow",
+    "communication",
+    "writing"
+  ] as const
 
-    return [...blocks].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
-  }
+  const instructionOrder = [
+    "role",
+    "objective",
+    "task",
+    "context",
+    "output",
+    "constraints",
+    "accuracy",
+    "research",
+    "workflow",
+    "communication",
+    "writing"
+  ] as const
 
-  return blocks
+  const order = surface.instructionRole === "user" ? userOrder : instructionOrder
+
+  return [...blocks].sort(
+    (a, b) => indexFor(order, a.id) - indexFor(order, b.id)
+  )
 }
 
 function renderBlock(block: PromptIRBlock, variant: "full" | "compact"): string {
@@ -38,8 +62,9 @@ function render(
 
 export function compilePrompt(request: CompileRequest): CompileResult {
   const surface = getSurface(request.target.surfaceId)
+  const model = request.target.modelId ? getModel(request.target.modelId) : null
   const limit = resolveCharacterLimit(surface, request.target.plan)
-  const ir = buildPromptIR(request.profile)
+  const ir = buildPromptIR(request.profile, request.brief)
   const blocks = orderBlocks(ir.blocks, surface)
   const variants = new Map<string, "full" | "compact">(
     blocks.map((block) => [block.id, "full"])
@@ -84,6 +109,12 @@ export function compilePrompt(request: CompileRequest): CompileResult {
 
   const warnings: string[] = []
 
+  if (model && model.provider !== surface.provider) {
+    warnings.push(
+      model.label + " does not match the selected " + surface.product + " target."
+    )
+  }
+
   if (surface.characterLimit.kind === "by-plan" && request.target.plan === undefined) {
     warnings.push("Choose a plan to resolve this surface's character limit.")
   } else if (limit === null) {
@@ -110,6 +141,7 @@ export function compilePrompt(request: CompileRequest): CompileResult {
     compactedBlocks,
     omittedBlocks,
     warnings,
-    surface
+    surface,
+    model
   }
 }
