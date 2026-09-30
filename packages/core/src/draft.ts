@@ -1,4 +1,9 @@
-import type { PlanId, PromptBrief, PromptTarget } from "./types"
+import type {
+  PlanId,
+  PromptBrief,
+  PromptOptimization,
+  PromptTarget
+} from "./types"
 
 export const PROMPT_DRAFT_SCHEMA_VERSION = 1 as const
 
@@ -28,6 +33,12 @@ const EMPTY_BRIEF: PromptBrief = {
   output: "",
   constraints: ""
 }
+
+const OPTIMIZATION_MODES: readonly PromptOptimization[] = [
+  "compact",
+  "balanced",
+  "maximum-fidelity"
+]
 
 const PLAN_IDS: readonly PlanId[] = [
   "free",
@@ -74,6 +85,14 @@ function isPromptTarget(value: unknown): value is PromptTarget {
   if (
     value.plan !== undefined &&
     (!PLAN_IDS.includes(value.plan as PlanId) || typeof value.plan !== "string")
+  ) {
+    return false
+  }
+
+  if (
+    value.optimization !== undefined &&
+    (!OPTIMIZATION_MODES.includes(value.optimization as PromptOptimization) ||
+      typeof value.optimization !== "string")
   ) {
     return false
   }
