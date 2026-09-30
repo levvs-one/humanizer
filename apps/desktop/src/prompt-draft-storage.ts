@@ -1,7 +1,8 @@
 import {
   parsePromptDraftDocument,
   serializePromptDraftDocument,
-  type PromptDraftDocument
+  type PromptDraftDocument,
+  type TargetExportArtifact
 } from "@humanizer/core"
 
 const DRAFTS_KEY = "humanizer.prompt-drafts.v1"
@@ -75,10 +76,13 @@ export function downloadPromptDraft(draft: PromptDraftDocument): void {
   )
 }
 
-export function downloadCompiledPrompt(name: string, text: string): void {
+export function downloadCompiledPrompt(
+  name: string,
+  artifact: TargetExportArtifact
+): void {
   downloadText(
-    safeFilename(name) + ".txt",
-    text.endsWith("\n") ? text : text + "\n",
-    "text/plain;charset=utf-8"
+    safeFilename(name) + "." + artifact.extension,
+    artifact.content,
+    artifact.mediaType
   )
 }

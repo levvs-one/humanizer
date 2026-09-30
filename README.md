@@ -60,6 +60,7 @@ docs/
   design.md
   registry.md
   adding-a-target.md
+  export-formats.md
 ```
 
 ## Development
