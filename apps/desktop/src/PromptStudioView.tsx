@@ -21,6 +21,7 @@ import {
   type ProviderId
 } from "@humanizer/core"
 import {
+  createConversationSessionKey,
   loadConversationSessions,
   removeConversationSession,
   saveConversationSessions,
@@ -235,12 +236,12 @@ export default function PromptStudioView({
   const requiresRuntimeInput = activeSurface.instructionRole !== "user"
   const supportsConversation = isApiTarget && requiresRuntimeInput
   const runtimeInput = runInputs[activeDraft.id] ?? ""
-  const conversationKey = [
+  const conversationKey = createConversationSessionKey(
     activeDraft.id,
     activeModel.id,
     activeSurface.id,
     result.text
-  ].join("\u0000")
+  )
   const conversationHistory =
     conversationSessions.find((session) => session.key === conversationKey)?.messages ?? []
   const currentExecution =
@@ -1107,8 +1108,8 @@ export default function PromptStudioView({
                 <span>
                   {supportsConversation
                     ? conversationHistory.length > 0
-                      ? conversationHistory.length / 2 + " turns in this local session."
-                      : "Conversation history stays local to this Studio session."
+                      ? conversationHistory.length / 2 + " turns saved locally."
+                      : "Conversation history is saved locally on this device."
                     : "Responses are not saved."}
                 </span>
               </div>
