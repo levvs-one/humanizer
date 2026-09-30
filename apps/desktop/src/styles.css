@@ -1078,3 +1078,29 @@ select:focus {
 .target-options-single > .field {
   margin-top: 0;
 }
+
+
+.advanced-behavior {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #ececef;
+}
+
+.advanced-behavior summary {
+  width: fit-content;
+  color: #4d4d52;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style-position: outside;
+}
+
+.advanced-behavior summary::marker {
+  color: #9a9a9f;
+}
+
+.advanced-behavior-content {
+  display: grid;
+  gap: 20px;
+  margin-top: 22px;
+}

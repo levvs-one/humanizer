@@ -62,6 +62,74 @@ function directnessInstruction(value: number): string {
   return "Provide context before the conclusion when it materially helps understanding."
 }
 
+function formalityInstruction(value: number): string {
+  const level = clamp(value)
+
+  if (level >= 75) {
+    return "Use a formal professional register without sounding ceremonial."
+  }
+
+  if (level <= 30) {
+    return "Use a relaxed professional register and ordinary vocabulary."
+  }
+
+  return "Use a neutral professional register."
+}
+
+function humorInstruction(value: number): string {
+  const level = clamp(value)
+
+  if (level >= 60) {
+    return "Use light, dry humor when it fits naturally, never at the expense of clarity."
+  }
+
+  if (level >= 25) {
+    return "Occasional understated humor is fine when the context supports it."
+  }
+
+  return "Do not force jokes or performative wit."
+}
+
+function initiativeInstruction(value: number): string {
+  const level = clamp(value)
+
+  if (level >= 75) {
+    return "Act on reasonable, reversible assumptions and avoid unnecessary clarification questions."
+  }
+
+  if (level >= 40) {
+    return "Clarify only when ambiguity would materially change the result."
+  }
+
+  return "Ask before making consequential assumptions."
+}
+
+function verificationInstruction(value: number): string {
+  const level = clamp(value)
+
+  if (level >= 85) {
+    return "Verify important factual or technical claims before relying on them."
+  }
+
+  if (level >= 50) {
+    return "Verify claims when an error would materially affect the answer."
+  }
+
+  return "Do not over-verify low-stakes facts when existing context is sufficient."
+}
+
+function uncertaintyInstruction(profile: BehaviorProfile): string {
+  if (profile.reasoning.uncertaintyHandling === "strict") {
+    return "If unresolved uncertainty could change the outcome, verify it or ask before acting."
+  }
+
+  if (profile.reasoning.uncertaintyHandling === "explicit") {
+    return "Clearly distinguish confirmed information from inference when uncertainty matters."
+  }
+
+  return "Mention uncertainty only when it changes the recommendation, action, or confidence."
+}
+
 function verbosityInstruction(profile: BehaviorProfile): string {
   if (profile.communication.verbosity === "low") {
     return "Keep responses compact. Expand only when complexity requires it."
@@ -217,9 +285,13 @@ export function buildPromptIR(profile: BehaviorProfile, brief?: PromptBrief): Pr
         priority: 95,
         required: true,
         full:
-          "Separate verified facts from inference. If a fact is current or uncertain and it matters to the answer, verify it before relying on it. Never invent APIs, citations, capabilities, source content, or completed actions.",
+          "Separate verified facts from inference. " +
+          verificationInstruction(profile.reasoning.verification) +
+          " " +
+          uncertaintyInstruction(profile) +
+          " Never invent APIs, citations, capabilities, source content, or completed actions.",
         compact:
-          "Separate fact from inference. Verify important current or uncertain claims. Never invent APIs, sources, capabilities, or completed actions."
+          "Separate fact from inference. Verify important uncertain claims. Never invent APIs, sources, capabilities, or completed actions."
       },
       {
         id: "research",
@@ -240,6 +312,10 @@ export function buildPromptIR(profile: BehaviorProfile, brief?: PromptBrief): Pr
           " " +
           directnessInstruction(profile.communication.directness) +
           " " +
+          formalityInstruction(profile.communication.formality) +
+          " " +
+          humorInstruction(profile.communication.humor) +
+          " " +
           verbosityInstruction(profile),
         compact: "Be natural, direct, and concise. Add detail only when it improves the answer."
       },
@@ -258,8 +334,11 @@ export function buildPromptIR(profile: BehaviorProfile, brief?: PromptBrief): Pr
         priority: 64,
         required: false,
         full:
-          "Understand the task before acting. Use tools or research when they materially reduce uncertainty. Stop researching when the evidence is sufficient, make the decision, and present the result cleanly.",
-        compact: "Use research or tools when they reduce meaningful uncertainty, then act."
+          "Understand the task before acting. " +
+          initiativeInstruction(profile.reasoning.initiative) +
+          " Use tools or research when they materially reduce uncertainty. Stop researching when the evidence is sufficient, make the decision, and present the result cleanly.",
+        compact:
+          "Use reasonable initiative. Use research or tools when they reduce meaningful uncertainty, then act."
       }
     ]
   }

@@ -12,7 +12,14 @@ export const DEFAULT_BEHAVIOR: BehaviorProfile = {
   communication: {
     naturalness: 88,
     directness: 92,
+    formality: 35,
+    humor: 12,
     verbosity: "low"
+  },
+  reasoning: {
+    initiative: 92,
+    verification: 96,
+    uncertaintyHandling: "quiet"
   },
   research: {
     rigor: 92,
@@ -34,7 +41,14 @@ const RESEARCH_BEHAVIOR: BehaviorProfile = {
   communication: {
     naturalness: 82,
     directness: 80,
+    formality: 55,
+    humor: 0,
     verbosity: "medium"
+  },
+  reasoning: {
+    initiative: 82,
+    verification: 100,
+    uncertaintyHandling: "strict"
   },
   research: {
     rigor: 98,
@@ -56,7 +70,14 @@ const WRITER_BEHAVIOR: BehaviorProfile = {
   communication: {
     naturalness: 96,
     directness: 82,
+    formality: 30,
+    humor: 22,
     verbosity: "medium"
+  },
+  reasoning: {
+    initiative: 84,
+    verification: 76,
+    uncertaintyHandling: "quiet"
   },
   research: {
     rigor: 62,

@@ -17,6 +17,7 @@ export type PromptPurpose =
   | "agent"
 
 export type Verbosity = "low" | "medium" | "high"
+export type UncertaintyHandling = "quiet" | "explicit" | "strict"
 
 export type CharacterLimit =
   | { kind: "fixed"; value: number }
@@ -56,7 +57,14 @@ export interface BehaviorProfile {
   communication: {
     naturalness: number
     directness: number
+    formality: number
+    humor: number
     verbosity: Verbosity
+  }
+  reasoning: {
+    initiative: number
+    verification: number
+    uncertaintyHandling: UncertaintyHandling
   }
   research: {
     rigor: number
