@@ -11,6 +11,7 @@ import {
   type ProfileDocument,
   type PromptBrief,
   type PromptDraftDocument,
+  type PromptOptimization,
   type ProviderId
 } from "@humanizer/core"
 import {
@@ -60,7 +61,8 @@ function createDefaultDraft(profileId: string): PromptDraftDocument {
     target: {
       modelId: model.id,
       surfaceId: surface.id,
-      ...(surface.characterLimit.kind === "by-plan" ? { plan: "plus" as PlanId } : {})
+      ...(surface.characterLimit.kind === "by-plan" ? { plan: "plus" as PlanId } : {}),
+      optimization: "balanced"
     }
   })
 }
@@ -130,6 +132,7 @@ export default function PromptStudioView({
   const activeSurface = surface
   const needsPlan = activeSurface.characterLimit.kind === "by-plan"
   const plan = activeDraft.target.plan ?? "plus"
+  const optimization = activeDraft.target.optimization ?? "balanced"
 
   const result = compilePrompt({
     profile: activeProfile.profile,
@@ -137,7 +140,8 @@ export default function PromptStudioView({
     target: {
       surfaceId: activeSurface.id,
       modelId: activeModel.id,
-      ...(needsPlan ? { plan } : {})
+      ...(needsPlan ? { plan } : {}),
+      optimization
     }
   })
 
@@ -172,7 +176,8 @@ export default function PromptStudioView({
         surfaceId: nextSurface.id,
         ...(nextSurface.characterLimit.kind === "by-plan"
           ? { plan: activeDraft.target.plan ?? "plus" }
-          : {})
+          : {}),
+        optimization: activeDraft.target.optimization ?? "balanced"
       }
     })
   }
@@ -187,7 +192,8 @@ export default function PromptStudioView({
         surfaceId: nextSurface.id,
         ...(nextSurface.characterLimit.kind === "by-plan"
           ? { plan: activeDraft.target.plan ?? "plus" }
-          : {})
+          : {}),
+        optimization: activeDraft.target.optimization ?? "balanced"
       }
     })
   }
@@ -361,29 +367,53 @@ export default function PromptStudioView({
               </div>
             </div>
 
-            {needsPlan ? (
-              <div className="field compact-field">
+            <div className={needsPlan ? "two-column-fields target-options" : "target-options-single"}>
+              {needsPlan ? (
+                <div className="field">
+                  <div className="field-heading">
+                    <label>Plan</label>
+                    <span>Resolves the official character limit</span>
+                  </div>
+                  <select
+                    value={plan}
+                    onChange={(event) =>
+                      patchDraft({
+                        target: {
+                          ...activeDraft.target,
+                          plan: event.target.value as PlanId
+                        }
+                      })
+                    }
+                  >
+                    {plans.map((entry) => (
+                      <option key={entry.value} value={entry.value}>{entry.label}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+
+              <div className="field">
                 <div className="field-heading">
-                  <label>Plan</label>
-                  <span>Resolves the official character limit</span>
+                  <label>Optimization</label>
+                  <span>Controls compression before export</span>
                 </div>
                 <select
-                  value={plan}
+                  value={optimization}
                   onChange={(event) =>
                     patchDraft({
                       target: {
                         ...activeDraft.target,
-                        plan: event.target.value as PlanId
+                        optimization: event.target.value as PromptOptimization
                       }
                     })
                   }
                 >
-                  {plans.map((entry) => (
-                    <option key={entry.value} value={entry.value}>{entry.label}</option>
-                  ))}
+                  <option value="balanced">Balanced</option>
+                  <option value="compact">Compact</option>
+                  <option value="maximum-fidelity">Maximum fidelity</option>
                 </select>
               </div>
-            ) : null}
+            </div>
 
             <dl className="target-facts">
               <div><dt>Context</dt><dd>{formatTokens(activeModel.contextWindowTokens)}</dd></div>
