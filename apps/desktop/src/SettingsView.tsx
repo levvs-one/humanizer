@@ -16,6 +16,10 @@ interface ProviderDefinition {
   keyHint: string
 }
 
+function currentUtcDay(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
 const PROVIDERS: ProviderDefinition[] = [
   {
     id: "openai",
@@ -170,6 +174,7 @@ function ProviderCredentialRow({
 
 export default function SettingsView() {
   const [statuses, setStatuses] = useState<CredentialStatus[]>([])
+  const [utcDay, setUtcDay] = useState(currentUtcDay)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -179,8 +184,8 @@ export default function SettingsView() {
   )
 
   const staleTargets = useMemo(
-    () => findStaleTargetSources(SURFACES, new Date(), 90),
-    []
+    () => findStaleTargetSources(SURFACES, utcDay, 90),
+    [utcDay]
   )
 
   async function refresh() {
@@ -200,6 +205,43 @@ export default function SettingsView() {
 
   useEffect(() => {
     void refresh()
+  }, [])
+
+  useEffect(() => {
+    function refreshUtcDay() {
+      setUtcDay(currentUtcDay())
+    }
+
+    function scheduleRollover(): ReturnType<typeof window.setTimeout> {
+      const now = new Date()
+      const nextUtcMidnight = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + 1
+      )
+
+      return window.setTimeout(() => {
+        refreshUtcDay()
+        rolloverTimer = scheduleRollover()
+      }, Math.max(1_000, nextUtcMidnight - now.getTime() + 100))
+    }
+
+    let rolloverTimer = scheduleRollover()
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        refreshUtcDay()
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("focus", refreshUtcDay)
+
+    return () => {
+      window.clearTimeout(rolloverTimer)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("focus", refreshUtcDay)
+    }
   }, [])
 
   return (
