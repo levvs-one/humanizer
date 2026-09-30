@@ -8,6 +8,8 @@ export {
 } from "./draft"
 export type { CreatePromptDraftInput, PromptDraftDocument } from "./draft"
 export { compilePrompt } from "./compiler"
+export { buildTargetExport } from "./exporter"
+export type { TargetExportArtifact, TargetExportFormat } from "./exporter"
 export { inspectPrompt } from "./inspector"
 export type { PromptInspectionContext } from "./inspector"
 export {
