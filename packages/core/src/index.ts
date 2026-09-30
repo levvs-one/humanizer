@@ -71,6 +71,7 @@ export type {
   PromptTarget,
   ProviderId,
   SourceReference,
+  ToolUsePolicy,
   UncertaintyHandling,
   Verbosity
 } from "./types"
