@@ -153,6 +153,46 @@ export function saveConversationSessions(
   }
 }
 
+export function clearStoredConversationSession(key: string): boolean {
+  try {
+    const serialized = window.localStorage.getItem(STORAGE_KEY)
+    if (!serialized) {
+      return true
+    }
+
+    const value: unknown = JSON.parse(serialized)
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      Array.isArray(value)
+    ) {
+      return true
+    }
+
+    const record = value as Record<string, unknown>
+    if (
+      record.schemaVersion !== SCHEMA_VERSION ||
+      !Array.isArray(record.sessions)
+    ) {
+      return true
+    }
+
+    const sessions = record.sessions
+      .filter(isConversationSession)
+      .filter((session) => session.key !== key)
+
+    const store: ConversationStore = {
+      schemaVersion: SCHEMA_VERSION,
+      sessions: normalizeSessions(sessions)
+    }
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function upsertConversationSession(
   sessions: readonly ConversationSession[],
   key: string,
