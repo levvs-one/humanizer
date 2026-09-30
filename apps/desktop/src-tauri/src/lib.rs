@@ -6,7 +6,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             credentials::set_provider_api_key,
             credentials::delete_provider_api_key,
-            credentials::provider_credential_status
+            credentials::provider_credential_status,
+            credentials::verify_provider_api_key
         ])
         .run(tauri::generate_context!())
         .expect("error while running Humanizer");
