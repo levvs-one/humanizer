@@ -339,6 +339,19 @@ export default function PromptStudioView({
     )
   }
 
+  function importProject(project: ProjectDocument) {
+    const next = projects.some((entry) => entry.id === project.id)
+      ? createProjectDocument({
+          name: project.name,
+          description: project.description,
+          behaviorOverrides: project.behaviorOverrides
+        })
+      : project
+
+    setProjects((current) => [...current, next])
+    patchDraft({ projectId: next.id })
+  }
+
   function deleteProject(projectId: string) {
     setProjects((current) => current.filter((project) => project.id !== projectId))
     setDrafts((current) =>
@@ -944,6 +957,7 @@ export default function PromptStudioView({
             baseProfile={activeProfile.profile}
             onSelect={(projectId) => patchDraft({ projectId })}
             onCreate={createProject}
+            onImport={importProject}
             onUpdate={updateProject}
             onDelete={deleteProject}
           />
