@@ -3,10 +3,15 @@ export {
   createPromptDraftDocument,
   duplicatePromptDraftDocument,
   parsePromptDraftDocument,
+  repairPromptDraftReferences,
   serializePromptDraftDocument,
   updatePromptDraftDocument
 } from "./draft"
-export type { CreatePromptDraftInput, PromptDraftDocument } from "./draft"
+export type {
+  CreatePromptDraftInput,
+  PromptDraftDocument,
+  PromptDraftReferenceContext
+} from "./draft"
 export { compilePrompt } from "./compiler"
 export { buildTargetExport } from "./exporter"
 export type { TargetExportArtifact, TargetExportFormat } from "./exporter"
