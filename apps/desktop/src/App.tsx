@@ -10,6 +10,7 @@ import {
 } from "@humanizer/core"
 import { createSeedProfiles, DEFAULT_BEHAVIOR } from "./defaults"
 import ProfilesView from "./ProfilesView"
+import SettingsView from "./SettingsView"
 import {
   loadActiveProfileId,
   loadProfiles,
@@ -676,12 +677,7 @@ export default function App() {
           />
         ) : null}
 
-        {view === "settings" ? (
-          <PendingView
-            title="Settings"
-            description="Provider credentials, local storage, registry updates, and privacy controls belong here."
-          />
-        ) : null}
+        {view === "settings" ? <SettingsView /> : null}
       </div>
     </div>
   )

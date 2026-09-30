@@ -2,7 +2,7 @@
 
 Humanizer is designed to be local-first. Provider credentials must not be stored in repository files, application logs, analytics payloads, or plain-text local databases.
 
-When credential support is implemented, secrets belong in the operating-system credential store.
+Provider credentials are stored through the operating-system credential store: Keychain on macOS, Credential Manager on Windows, and Secret Service on Linux. The desktop frontend can set, replace, delete, and query only whether a credential exists; the native layer does not return saved API keys to the interface.
 
 ## Reporting
 
