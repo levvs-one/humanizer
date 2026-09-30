@@ -2,6 +2,20 @@ import { defineSurface } from "./define"
 
 export const ANTHROPIC_SURFACES = [
   defineSurface({
+    id: "claude-project-instructions",
+    provider: "anthropic",
+    product: "Claude",
+    label: "Project Instructions",
+    instructionRole: "persistent",
+    characterLimit: { kind: "unknown" },
+    tokenLimitNote: "Anthropic documents project instructions but does not publish a verified hard character limit here.",
+    source: {
+      label: "Anthropic Help Center",
+      url: "https://support.anthropic.com/en/articles/9519177-how-can-i-create-and-manage-projects",
+      verifiedAt: "2026-09-30"
+    }
+  }),
+  defineSurface({
     id: "anthropic-api-system",
     provider: "anthropic",
     product: "Claude API",
