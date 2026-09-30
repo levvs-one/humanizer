@@ -947,3 +947,134 @@ select:focus {
     grid-template-columns: 1fr;
   }
 }
+
+
+.studio-page-header {
+  max-width: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.studio-page-header > div {
+  max-width: 680px;
+}
+
+.local-save-note {
+  flex-shrink: 0;
+  color: #8a8a8f;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.draft-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #dedee3;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.draft-picker {
+  min-width: 0;
+}
+
+.draft-picker label {
+  display: block;
+  margin-bottom: 5px;
+  color: #77777c;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.draft-picker select,
+.draft-name-input {
+  min-height: 36px;
+  font-size: 12px;
+}
+
+.draft-name-input {
+  padding: 0 11px;
+  border: 1px solid #d7d7dc;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #1d1d1f;
+}
+
+.draft-name-input:focus {
+  border-color: #9a9a9f;
+  outline: none;
+}
+
+.draft-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.draft-actions .plain-button:disabled {
+  color: #b0b0b5;
+  cursor: default;
+}
+
+.draft-actions .plain-button:disabled:hover {
+  background: transparent;
+}
+
+.draft-error {
+  margin-top: 0;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 980px) {
+  .draft-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .draft-actions {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .studio-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .draft-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .draft-actions {
+    grid-column: auto;
+    flex-wrap: wrap;
+  }
+}
+
+
+.target-options,
+.target-options-single {
+  margin-top: 18px;
+}
+
+.target-options-single {
+  max-width: 360px;
+}
+
+.target-options > .field,
+.target-options-single > .field {
+  margin-top: 0;
+}

@@ -153,3 +153,52 @@ describe("provider-specific rendering", () => {
     expect(result.text).not.toContain("<role>")
   })
 })
+
+
+describe("prompt optimization", () => {
+  it("uses compact variants immediately in compact mode", () => {
+    const result = compilePrompt({
+      profile,
+      target: {
+        surfaceId: "chatgpt-custom-instructions",
+        plan: "plus",
+        optimization: "compact"
+      }
+    })
+
+    expect(result.optimization).toBe("compact")
+    expect(result.compactedBlocks.length).toBeGreaterThan(0)
+    expect(result.text).toContain("Be natural, direct, and concise.")
+  })
+
+  it("preserves full instructions in maximum fidelity mode", () => {
+    const result = compilePrompt({
+      profile: {
+        ...profile,
+        objective: "x".repeat(1800)
+      },
+      target: {
+        surfaceId: "chatgpt-custom-instructions",
+        plan: "free",
+        optimization: "maximum-fidelity"
+      }
+    })
+
+    expect(result.status).toBe("overflow")
+    expect(result.compactedBlocks).toEqual([])
+    expect(result.omittedBlocks).toEqual([])
+    expect(result.warnings.some((warning) => warning.includes("Maximum fidelity"))).toBe(true)
+  })
+
+  it("warns when a user prompt has no concrete task", () => {
+    const result = compilePrompt({
+      profile,
+      target: {
+        surfaceId: "openai-api-user",
+        modelId: "gpt-5.6-sol"
+      }
+    })
+
+    expect(result.warnings.some((warning) => warning.startsWith("Add a task."))).toBe(true)
+  })
+})

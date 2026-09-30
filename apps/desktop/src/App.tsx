@@ -410,7 +410,7 @@ export default function App() {
           />
         ) : null}
 
-        {view === "studio" ? <PromptStudioView profile={profile} /> : null}
+        {view === "studio" ? <PromptStudioView profiles={profiles} defaultProfileId={activeId} /> : null}
 
         {view === "profiles" ? (
           <ProfilesView

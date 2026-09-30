@@ -1,13 +1,27 @@
-import { useMemo, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   compilePrompt,
+  createPromptDraftDocument,
+  duplicatePromptDraftDocument,
   MODELS,
+  parsePromptDraftDocument,
   SURFACES,
-  type BehaviorProfile,
+  updatePromptDraftDocument,
   type PlanId,
+  type ProfileDocument,
   type PromptBrief,
+  type PromptDraftDocument,
+  type PromptOptimization,
   type ProviderId
 } from "@humanizer/core"
+import {
+  downloadCompiledPrompt,
+  downloadPromptDraft,
+  loadActivePromptDraftId,
+  loadPromptDrafts,
+  saveActivePromptDraftId,
+  savePromptDrafts
+} from "./prompt-draft-storage"
 
 const plans: Array<{ value: PlanId; label: string }> = [
   { value: "free", label: "Free" },
@@ -27,67 +41,223 @@ const providerLabels: Record<ProviderId, string> = {
 
 function formatTokens(value: number | null): string {
   if (value === null) return "Not verified"
-  if (value >= 1_000_000) return (value / 1_000_000).toFixed(value % 1_000_000 ? 2 : 0) + "M tokens"
+  if (value >= 1_000_000) {
+    return (value / 1_000_000).toFixed(value % 1_000_000 ? 2 : 0) + "M tokens"
+  }
   if (value >= 1_000) return Math.round(value / 1_000) + "K tokens"
   return value.toLocaleString() + " tokens"
 }
 
-export default function PromptStudioView({ profile }: { profile: BehaviorProfile }) {
-  const firstModel = MODELS[0]
-  const firstSurface = SURFACES[0]
+function createDefaultDraft(profileId: string): PromptDraftDocument {
+  const model = MODELS[0]
+  const surface = SURFACES[0]
 
-  if (!firstModel || !firstSurface) {
+  if (!model || !surface) {
     throw new Error("Prompt Studio registry is empty.")
   }
 
-  const [modelId, setModelId] = useState(firstModel.id)
-  const [surfaceId, setSurfaceId] = useState(firstSurface.id)
-  const [plan, setPlan] = useState<PlanId>("plus")
-  const [brief, setBrief] = useState<PromptBrief>({
-    goal: "",
-    context: "",
-    output: "",
-    constraints: ""
+  return createPromptDraftDocument({
+    profileId,
+    target: {
+      modelId: model.id,
+      surfaceId: surface.id,
+      ...(surface.characterLimit.kind === "by-plan" ? { plan: "plus" as PlanId } : {}),
+      optimization: "balanced"
+    }
+  })
+}
+
+export default function PromptStudioView({
+  profiles,
+  defaultProfileId
+}: {
+  profiles: ProfileDocument[]
+  defaultProfileId: string
+}) {
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [drafts, setDrafts] = useState<PromptDraftDocument[]>(() => {
+    const stored = loadPromptDrafts()
+    return stored.length > 0 ? stored : [createDefaultDraft(defaultProfileId)]
+  })
+  const [activeDraftId, setActiveDraftId] = useState(() => {
+    const stored = loadActivePromptDraftId()
+    return stored ?? drafts[0]?.id ?? ""
   })
   const [copied, setCopied] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
 
-  const model = MODELS.find((entry) => entry.id === modelId) ?? firstModel
-  const surfaces = SURFACES.filter((entry) => entry.provider === model.provider)
-  const surface = surfaces.find((entry) => entry.id === surfaceId) ?? surfaces[0]
+  const draft = drafts.find((entry) => entry.id === activeDraftId) ?? drafts[0]
+
+  useEffect(() => {
+    savePromptDrafts(drafts)
+  }, [drafts])
+
+  useEffect(() => {
+    if (draft?.id) {
+      saveActivePromptDraftId(draft.id)
+    }
+  }, [draft?.id])
+
+  if (!draft) {
+    return null
+  }
+
+  const activeDraft = draft
+  const firstModel = MODELS[0]
+  const model = MODELS.find((entry) => entry.id === activeDraft.target.modelId) ?? firstModel
+
+  if (!model) {
+    throw new Error("Model registry is empty.")
+  }
+
+  const activeModel = model
+  const surfaces = SURFACES.filter((entry) => entry.provider === activeModel.provider)
+  const surface =
+    surfaces.find((entry) => entry.id === activeDraft.target.surfaceId) ?? surfaces[0]
 
   if (!surface) {
     throw new Error("No prompt surface for selected model.")
   }
 
-  const needsPlan = surface.characterLimit.kind === "by-plan"
+  const profile =
+    profiles.find((entry) => entry.id === activeDraft.profileId) ??
+    profiles.find((entry) => entry.id === defaultProfileId) ??
+    profiles[0]
 
-  const result = useMemo(
-    () =>
-      compilePrompt({
-        profile,
-        brief,
-        target: {
-          surfaceId: surface.id,
-          modelId: model.id,
-          ...(needsPlan ? { plan } : {})
-        }
-      }),
-    [profile, brief, surface.id, model.id, needsPlan, plan]
-  )
+  if (!profile) {
+    throw new Error("At least one behavior profile is required.")
+  }
 
-  function chooseModel(nextId: string) {
-    const next = MODELS.find((entry) => entry.id === nextId)
-    if (!next) return
+  const activeProfile = profile
+  const activeSurface = surface
+  const needsPlan = activeSurface.characterLimit.kind === "by-plan"
+  const plan = activeDraft.target.plan ?? "plus"
+  const optimization = activeDraft.target.optimization ?? "balanced"
 
-    setModelId(next.id)
-    const compatible = SURFACES.find((entry) => entry.provider === next.provider)
-    if (compatible) setSurfaceId(compatible.id)
+  const result = compilePrompt({
+    profile: activeProfile.profile,
+    brief: activeDraft.brief,
+    target: {
+      surfaceId: activeSurface.id,
+      modelId: activeModel.id,
+      ...(needsPlan ? { plan } : {}),
+      optimization
+    }
+  })
+
+  function replaceDraft(next: PromptDraftDocument) {
+    setDrafts((current) =>
+      current.map((entry) => (entry.id === next.id ? next : entry))
+    )
     setCopied(false)
   }
 
+  function patchDraft(
+    changes: Partial<
+      Pick<PromptDraftDocument, "name" | "profileId" | "target" | "brief">
+    >
+  ) {
+    replaceDraft(updatePromptDraftDocument(activeDraft, changes))
+  }
+
+  function chooseModel(nextId: string) {
+    const nextModel = MODELS.find((entry) => entry.id === nextId)
+    if (!nextModel) return
+
+    const nextSurface = SURFACES.find(
+      (entry) => entry.provider === nextModel.provider
+    )
+
+    if (!nextSurface) return
+
+    patchDraft({
+      target: {
+        modelId: nextModel.id,
+        surfaceId: nextSurface.id,
+        ...(nextSurface.characterLimit.kind === "by-plan"
+          ? { plan: activeDraft.target.plan ?? "plus" }
+          : {}),
+        optimization: activeDraft.target.optimization ?? "balanced"
+      }
+    })
+  }
+
+  function chooseSurface(nextSurfaceId: string) {
+    const nextSurface = SURFACES.find((entry) => entry.id === nextSurfaceId)
+    if (!nextSurface) return
+
+    patchDraft({
+      target: {
+        modelId: activeModel.id,
+        surfaceId: nextSurface.id,
+        ...(nextSurface.characterLimit.kind === "by-plan"
+          ? { plan: activeDraft.target.plan ?? "plus" }
+          : {}),
+        optimization: activeDraft.target.optimization ?? "balanced"
+      }
+    })
+  }
+
   function updateBrief(field: keyof PromptBrief, value: string) {
-    setBrief((current) => ({ ...current, [field]: value }))
-    setCopied(false)
+    patchDraft({
+      brief: {
+        ...activeDraft.brief,
+        [field]: value
+      }
+    })
+  }
+
+  function newDraft() {
+    const next = createDefaultDraft(activeProfile.id)
+    setDrafts((current) => [...current, next])
+    setActiveDraftId(next.id)
+    setImportError(null)
+  }
+
+  function duplicateDraft() {
+    const next = duplicatePromptDraftDocument(activeDraft)
+    setDrafts((current) => [...current, next])
+    setActiveDraftId(next.id)
+    setImportError(null)
+  }
+
+  function deleteDraft() {
+    if (drafts.length <= 1) return
+
+    const next = drafts.filter((entry) => entry.id !== activeDraft.id)
+    setDrafts(next)
+    setActiveDraftId(next[0]?.id ?? "")
+    setImportError(null)
+  }
+
+  async function importDraft(file: File | undefined) {
+    if (!file) return
+
+    try {
+      const imported = parsePromptDraftDocument(await file.text())
+      const profileId = profiles.some((entry) => entry.id === imported.profileId)
+        ? imported.profileId
+        : defaultProfileId
+      const collision = drafts.some((entry) => entry.id === imported.id)
+      const next = collision
+        ? createPromptDraftDocument({
+            name: imported.name,
+            profileId,
+            target: imported.target,
+            brief: imported.brief
+          })
+        : updatePromptDraftDocument(imported, { profileId })
+
+      setDrafts((current) => [...current, next])
+      setActiveDraftId(next.id)
+      setImportError(null)
+    } catch (reason) {
+      setImportError(
+        reason instanceof Error ? reason.message : "Could not import this prompt draft."
+      )
+    } finally {
+      if (fileInput.current) fileInput.current.value = ""
+    }
   }
 
   async function copyPrompt() {
@@ -105,10 +275,63 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
 
   return (
     <main className="page">
-      <header className="page-header">
-        <h1>Prompt Studio</h1>
-        <p>Choose a model and prompt type, describe the job, and compile it with the active behavior profile.</p>
+      <header className="page-header studio-page-header">
+        <div>
+          <h1>Prompt Studio</h1>
+          <p>
+            Choose a model and prompt type, describe the job, and compile it with a behavior profile.
+          </p>
+        </div>
+        <span className="local-save-note">Saved locally</span>
       </header>
+
+      <section className="draft-toolbar" aria-label="Prompt drafts">
+        <div className="draft-picker">
+          <label htmlFor="prompt-draft">Draft</label>
+          <select
+            id="prompt-draft"
+            value={activeDraft.id}
+            onChange={(event) => setActiveDraftId(event.target.value)}
+          >
+            {drafts.map((entry) => (
+              <option key={entry.id} value={entry.id}>
+                {entry.name || "Untitled Prompt"}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <input
+          className="draft-name-input"
+          aria-label="Draft name"
+          value={activeDraft.name}
+          onChange={(event) => patchDraft({ name: event.target.value })}
+        />
+
+        <div className="draft-actions">
+          <input
+            ref={fileInput}
+            className="visually-hidden"
+            type="file"
+            accept=".json,.humanizer-prompt.json,application/json"
+            onChange={(event) => void importDraft(event.target.files?.[0])}
+          />
+          <button className="plain-button" type="button" onClick={newDraft}>New</button>
+          <button className="plain-button" type="button" onClick={duplicateDraft}>Duplicate</button>
+          <button className="plain-button" type="button" onClick={() => fileInput.current?.click()}>Import</button>
+          <button className="plain-button" type="button" onClick={() => downloadPromptDraft(activeDraft)}>Export</button>
+          <button
+            className="plain-button danger"
+            type="button"
+            disabled={drafts.length <= 1}
+            onClick={deleteDraft}
+          >
+            Delete
+          </button>
+        </div>
+      </section>
+
+      {importError ? <div className="inline-error draft-error">{importError}</div> : null}
 
       <div className="studio-layout">
         <div className="studio-controls">
@@ -121,7 +344,7 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
             <div className="two-column-fields">
               <div className="field">
                 <div className="field-heading"><label>Model</label></div>
-                <select value={model.id} onChange={(event) => chooseModel(event.target.value)}>
+                <select value={activeModel.id} onChange={(event) => chooseModel(event.target.value)}>
                   {(Object.keys(providerLabels) as ProviderId[]).map((provider) => (
                     <optgroup key={provider} label={providerLabels[provider]}>
                       {MODELS.filter((entry) => entry.provider === provider).map((entry) => (
@@ -134,7 +357,7 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
 
               <div className="field">
                 <div className="field-heading"><label>Prompt type</label></div>
-                <select value={surface.id} onChange={(event) => setSurfaceId(event.target.value)}>
+                <select value={activeSurface.id} onChange={(event) => chooseSurface(event.target.value)}>
                   {surfaces.map((entry) => (
                     <option key={entry.id} value={entry.id}>
                       {entry.product} {entry.label}
@@ -144,24 +367,58 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
               </div>
             </div>
 
-            {needsPlan ? (
-              <div className="field compact-field">
-                <div className="field-heading">
-                  <label>Plan</label>
-                  <span>Resolves the official character limit</span>
+            <div className={needsPlan ? "two-column-fields target-options" : "target-options-single"}>
+              {needsPlan ? (
+                <div className="field">
+                  <div className="field-heading">
+                    <label>Plan</label>
+                    <span>Resolves the official character limit</span>
+                  </div>
+                  <select
+                    value={plan}
+                    onChange={(event) =>
+                      patchDraft({
+                        target: {
+                          ...activeDraft.target,
+                          plan: event.target.value as PlanId
+                        }
+                      })
+                    }
+                  >
+                    {plans.map((entry) => (
+                      <option key={entry.value} value={entry.value}>{entry.label}</option>
+                    ))}
+                  </select>
                 </div>
-                <select value={plan} onChange={(event) => setPlan(event.target.value as PlanId)}>
-                  {plans.map((entry) => (
-                    <option key={entry.value} value={entry.value}>{entry.label}</option>
-                  ))}
+              ) : null}
+
+              <div className="field">
+                <div className="field-heading">
+                  <label>Optimization</label>
+                  <span>Controls compression before export</span>
+                </div>
+                <select
+                  value={optimization}
+                  onChange={(event) =>
+                    patchDraft({
+                      target: {
+                        ...activeDraft.target,
+                        optimization: event.target.value as PromptOptimization
+                      }
+                    })
+                  }
+                >
+                  <option value="balanced">Balanced</option>
+                  <option value="compact">Compact</option>
+                  <option value="maximum-fidelity">Maximum fidelity</option>
                 </select>
               </div>
-            ) : null}
+            </div>
 
             <dl className="target-facts">
-              <div><dt>Context</dt><dd>{formatTokens(model.contextWindowTokens)}</dd></div>
-              <div><dt>Max output</dt><dd>{formatTokens(model.maxOutputTokens)}</dd></div>
-              <div><dt>Role</dt><dd>{surface.instructionRole}</dd></div>
+              <div><dt>Context</dt><dd>{formatTokens(activeModel.contextWindowTokens)}</dd></div>
+              <div><dt>Max output</dt><dd>{formatTokens(activeModel.maxOutputTokens)}</dd></div>
+              <div><dt>Role</dt><dd>{activeSurface.instructionRole}</dd></div>
             </dl>
           </section>
 
@@ -175,7 +432,7 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
               <div className="field-heading"><label>What should this prompt do?</label></div>
               <textarea
                 rows={5}
-                value={brief.goal}
+                value={activeDraft.brief.goal}
                 placeholder="Describe the task in plain language."
                 onChange={(event) => updateBrief("goal", event.target.value)}
               />
@@ -185,7 +442,7 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
               <div className="field-heading"><label>Context</label><span>Optional</span></div>
               <textarea
                 rows={3}
-                value={brief.context}
+                value={activeDraft.brief.context}
                 placeholder="Information the model should know before it starts."
                 onChange={(event) => updateBrief("context", event.target.value)}
               />
@@ -196,7 +453,7 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
                 <div className="field-heading"><label>Expected output</label><span>Optional</span></div>
                 <textarea
                   rows={3}
-                  value={brief.output}
+                  value={activeDraft.brief.output}
                   placeholder="What a good result should contain."
                   onChange={(event) => updateBrief("output", event.target.value)}
                 />
@@ -206,7 +463,7 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
                 <div className="field-heading"><label>Constraints</label><span>Optional</span></div>
                 <textarea
                   rows={3}
-                  value={brief.constraints}
+                  value={activeDraft.brief.constraints}
                   placeholder="Hard requirements or exclusions."
                   onChange={(event) => updateBrief("constraints", event.target.value)}
                 />
@@ -217,12 +474,25 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
           <section className="panel compact-summary-panel">
             <div className="panel-heading">
               <h2>Behavior profile</h2>
-              <p>{profile.role}</p>
+              <p>The draft keeps its own profile reference.</p>
             </div>
+
+            <div className="field">
+              <select
+                aria-label="Behavior profile"
+                value={activeProfile.id}
+                onChange={(event) => patchDraft({ profileId: event.target.value })}
+              >
+                {profiles.map((entry) => (
+                  <option key={entry.id} value={entry.id}>{entry.name}</option>
+                ))}
+              </select>
+            </div>
+
             <dl className="target-facts">
-              <div><dt>Naturalness</dt><dd>{profile.communication.naturalness}</dd></div>
-              <div><dt>Directness</dt><dd>{profile.communication.directness}</dd></div>
-              <div><dt>Research</dt><dd>{profile.research.rigor}</dd></div>
+              <div><dt>Naturalness</dt><dd>{activeProfile.profile.communication.naturalness}</dd></div>
+              <div><dt>Directness</dt><dd>{activeProfile.profile.communication.directness}</dd></div>
+              <div><dt>Research</dt><dd>{activeProfile.profile.research.rigor}</dd></div>
             </dl>
           </section>
         </div>
@@ -233,9 +503,18 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
               <h2>Output</h2>
               <p className={result.status === "overflow" ? "status error" : "status"}>{status}</p>
             </div>
-            <button className="secondary-button" type="button" onClick={copyPrompt}>
-              {copied ? "Copied" : "Copy"}
-            </button>
+            <div className="preview-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => downloadCompiledPrompt(activeDraft.name, result.text)}
+              >
+                Export
+              </button>
+              <button className="secondary-button" type="button" onClick={copyPrompt}>
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
           </div>
 
           <div className="count-row">
@@ -256,8 +535,8 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
           ) : null}
 
           <div className="source-note studio-source-note">
-            <a href={model.source.url} target="_blank" rel="noreferrer">Model source</a>
-            <a href={surface.source.url} target="_blank" rel="noreferrer">Target source</a>
+            <a href={activeModel.source.url} target="_blank" rel="noreferrer">Model source</a>
+            <a href={activeSurface.source.url} target="_blank" rel="noreferrer">Target source</a>
           </div>
         </aside>
       </div>

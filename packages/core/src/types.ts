@@ -77,10 +77,13 @@ export interface PromptBrief {
   constraints: string
 }
 
+export type PromptOptimization = "compact" | "balanced" | "maximum-fidelity"
+
 export interface PromptTarget {
   surfaceId: string
   plan?: PlanId
   modelId?: string
+  optimization?: PromptOptimization
 }
 
 export interface CompileRequest {
@@ -101,4 +104,5 @@ export interface CompileResult {
   warnings: string[]
   surface: PromptSurface
   model: ModelDefinition | null
+  optimization: PromptOptimization
 }
