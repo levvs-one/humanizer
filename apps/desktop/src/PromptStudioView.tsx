@@ -6,6 +6,7 @@ import {
   createProjectDocument,
   createPromptDraftDocument,
   duplicatePromptDraftDocument,
+  getProjectModelOverrides,
   MODELS,
   parsePromptDraftDocument,
   SURFACES,
@@ -250,8 +251,16 @@ export default function PromptStudioView({
     activeProfile.profile,
     [activeProject?.behaviorOverrides ?? {}]
   )
-  const effectiveProfile = applyBehaviorOverrideLayers(
+  const modelBehaviorOverrides = getProjectModelOverrides(
+    activeProject,
+    activeModel.id
+  )
+  const modelProfile = applyBehaviorOverrideLayers(
     projectProfile,
+    [modelBehaviorOverrides]
+  )
+  const effectiveProfile = applyBehaviorOverrideLayers(
+    modelProfile,
     [activeDraft.behaviorOverrides]
   )
   const overrideCount = Object.keys(activeDraft.behaviorOverrides).length
@@ -355,7 +364,8 @@ export default function PromptStudioView({
       ? createProjectDocument({
           name: project.name,
           description: project.description,
-          behaviorOverrides: project.behaviorOverrides
+          behaviorOverrides: project.behaviorOverrides,
+          modelOverrides: project.modelOverrides
         })
       : project
 
@@ -966,6 +976,8 @@ export default function PromptStudioView({
             projects={projects}
             activeProject={activeProject}
             baseProfile={activeProfile.profile}
+            activeModelId={activeModel.id}
+            activeModelLabel={activeModel.label}
             storageAvailable={projectStorageAvailable}
             onSelect={(projectId) => patchDraft({ projectId })}
             onCreate={createProject}
@@ -1015,7 +1027,7 @@ export default function PromptStudioView({
                         ? activeDraft.behaviorOverrides.role
                         : ""
                     }
-                    placeholder={projectProfile.role}
+                    placeholder={modelProfile.role}
                     onChange={(event) =>
                       setBehaviorOverride(
                         "role",
@@ -1037,7 +1049,7 @@ export default function PromptStudioView({
                         ? activeDraft.behaviorOverrides.objective
                         : ""
                     }
-                    placeholder={projectProfile.objective}
+                    placeholder={modelProfile.objective}
                     onChange={(event) =>
                       setBehaviorOverride(
                         "objective",
@@ -1063,7 +1075,7 @@ export default function PromptStudioView({
                         )
                       }
                     >
-                      <option value="">Inherited ({projectProfile.communication.verbosity})</option>
+                      <option value="">Inherited ({modelProfile.communication.verbosity})</option>
                       <option value="low">Compact</option>
                       <option value="medium">Balanced</option>
                       <option value="high">Detailed</option>
@@ -1077,7 +1089,7 @@ export default function PromptStudioView({
                       min="0"
                       max="100"
                       value={numericBehaviorOverride("communication.directness")}
-                      placeholder={String(projectProfile.communication.directness)}
+                      placeholder={String(modelProfile.communication.directness)}
                       onChange={(event) =>
                         setBehaviorOverride(
                           "communication.directness",
@@ -1096,7 +1108,7 @@ export default function PromptStudioView({
                       min="0"
                       max="100"
                       value={numericBehaviorOverride("reasoning.initiative")}
-                      placeholder={String(projectProfile.reasoning.initiative)}
+                      placeholder={String(modelProfile.reasoning.initiative)}
                       onChange={(event) =>
                         setBehaviorOverride(
                           "reasoning.initiative",
@@ -1113,7 +1125,7 @@ export default function PromptStudioView({
                       min="0"
                       max="100"
                       value={numericBehaviorOverride("reasoning.verification")}
-                      placeholder={String(projectProfile.reasoning.verification)}
+                      placeholder={String(modelProfile.reasoning.verification)}
                       onChange={(event) =>
                         setBehaviorOverride(
                           "reasoning.verification",
@@ -1140,7 +1152,7 @@ export default function PromptStudioView({
                         )
                       }
                     >
-                      <option value="">Inherited ({projectProfile.tools.usage})</option>
+                      <option value="">Inherited ({modelProfile.tools.usage})</option>
                       <option value="off">Off</option>
                       <option value="when-useful">When useful</option>
                       <option value="proactive">Proactive</option>
@@ -1165,7 +1177,7 @@ export default function PromptStudioView({
                       }
                     >
                       <option value="">
-                        Inherited ({projectProfile.tools.confirmExternalActions ? "confirm" : "allowed"})
+                        Inherited ({modelProfile.tools.confirmExternalActions ? "confirm" : "allowed"})
                       </option>
                       <option value="true">Confirm consequential actions</option>
                       <option value="false">No extra confirmation rule</option>
@@ -1191,7 +1203,7 @@ export default function PromptStudioView({
                     }
                   >
                     <option value="">
-                      Inherited ({projectProfile.tools.preferReadOnly ? "yes" : "no"})
+                      Inherited ({modelProfile.tools.preferReadOnly ? "yes" : "no"})
                     </option>
                     <option value="true">Prefer read-only inspection</option>
                     <option value="false">No read-only preference</option>
@@ -1205,7 +1217,7 @@ export default function PromptStudioView({
                     min="0"
                     max="100"
                     value={numericBehaviorOverride("research.rigor")}
-                    placeholder={String(projectProfile.research.rigor)}
+                    placeholder={String(modelProfile.research.rigor)}
                     onChange={(event) =>
                       setBehaviorOverride(
                         "research.rigor",
