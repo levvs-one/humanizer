@@ -37,6 +37,7 @@ export type {
   ModelDefinition,
   PlanId,
   PromptBrief,
+  PromptOptimization,
   PromptPurpose,
   PromptSurface,
   PromptTarget,
