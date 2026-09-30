@@ -41,12 +41,15 @@ export interface PromptSurface {
   source: SourceReference
 }
 
+export type TokenCountingMode = "provider-api" | "unavailable"
+
 export interface ModelDefinition {
   id: string
   provider: ProviderId
   label: string
   contextWindowTokens: number | null
   maxOutputTokens: number | null
+  tokenCounting: TokenCountingMode
   source: SourceReference
 }
 
