@@ -1,0 +1,11 @@
+node_modules
+dist
+.vite
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+!.env.example
+target
+apps/desktop/src-tauri/target
