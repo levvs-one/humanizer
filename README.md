@@ -59,6 +59,7 @@ docs/
   architecture.md
   design.md
   registry.md
+  adding-a-target.md
 ```
 
 ## Development
@@ -85,6 +86,10 @@ pnpm build
 ## Status
 
 The repository is in active foundation work. The first milestone is a clean Prompt Studio with source-backed target constraints, deterministic compilation, local profiles, and before/after testing.
+
+## Contributing
+
+Small, source-backed compatibility additions are welcome. The cleanest first contribution is usually a new target surface with official documentation and a regression test. See `CONTRIBUTING.md` and `docs/adding-a-target.md`.
 
 ## License
 
