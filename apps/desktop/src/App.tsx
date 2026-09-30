@@ -347,7 +347,8 @@ function PromptStudio({
     return null
   }
 
-  const needsPlan = selectedSurface.characterLimit.kind === "by-plan"
+  const activeSurface = selectedSurface
+  const needsPlan = activeSurface.characterLimit.kind === "by-plan"
 
   function handleProductChange(nextProduct: string) {
     const firstSurface = SURFACES.find((surface) => surface.product === nextProduct)
@@ -360,8 +361,8 @@ function PromptStudio({
 
   function generate() {
     const target = needsPlan
-      ? { surfaceId: selectedSurface.id, plan }
-      : { surfaceId: selectedSurface.id }
+      ? { surfaceId: activeSurface.id, plan }
+      : { surfaceId: activeSurface.id }
 
     setResult(compilePrompt({ profile, target }))
     setCopied(false)
@@ -424,7 +425,7 @@ function PromptStudio({
               <div className="field">
                 <FieldLabel title="Surface" />
                 <select
-                  value={selectedSurface.id}
+                  value={activeSurface.id}
                   onChange={(event) => setSurfaceId(event.target.value)}
                 >
                   {surfaces.map((surface) => (
@@ -450,9 +451,9 @@ function PromptStudio({
             ) : null}
 
             <div className="source-note">
-              <span>Verified {selectedSurface.source.verifiedAt}</span>
-              <a href={selectedSurface.source.url} target="_blank" rel="noreferrer">
-                {selectedSurface.source.label}
+              <span>Verified {activeSurface.source.verifiedAt}</span>
+              <a href={activeSurface.source.url} target="_blank" rel="noreferrer">
+                {activeSurface.source.label}
               </a>
             </div>
           </section>
