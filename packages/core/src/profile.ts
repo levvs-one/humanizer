@@ -86,7 +86,7 @@ export function duplicateProfileDocument(
     name: options.name?.trim() || source.name + " Copy",
     description: source.description,
     profile: source.profile,
-    now: options.now
+    ...(options.now ? { now: options.now } : {})
   })
 }
 
