@@ -370,6 +370,19 @@ export default function PromptStudioView({
     return typeof value === "number" ? String(value) : ""
   }
 
+  function scoreBehaviorOverride(value: string): number | undefined {
+    if (value === "") {
+      return undefined
+    }
+
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed)) {
+      return undefined
+    }
+
+    return Math.max(0, Math.min(100, parsed))
+  }
+
   function chooseModel(nextId: string) {
     const nextModel = MODELS.find((entry) => entry.id === nextId)
     if (!nextModel) return
@@ -1042,7 +1055,7 @@ export default function PromptStudioView({
                       onChange={(event) =>
                         setBehaviorOverride(
                           "communication.directness",
-                          event.target.value === "" ? undefined : Number(event.target.value)
+                          scoreBehaviorOverride(event.target.value)
                         )
                       }
                     />
@@ -1061,7 +1074,7 @@ export default function PromptStudioView({
                       onChange={(event) =>
                         setBehaviorOverride(
                           "reasoning.initiative",
-                          event.target.value === "" ? undefined : Number(event.target.value)
+                          scoreBehaviorOverride(event.target.value)
                         )
                       }
                     />
@@ -1078,11 +1091,85 @@ export default function PromptStudioView({
                       onChange={(event) =>
                         setBehaviorOverride(
                           "reasoning.verification",
-                          event.target.value === "" ? undefined : Number(event.target.value)
+                          scoreBehaviorOverride(event.target.value)
                         )
                       }
                     />
                   </div>
+                </div>
+
+                <div className="two-column-fields">
+                  <div className="field">
+                    <div className="field-heading"><label>Tool use</label></div>
+                    <select
+                      value={
+                        typeof activeDraft.behaviorOverrides["tools.usage"] === "string"
+                          ? String(activeDraft.behaviorOverrides["tools.usage"])
+                          : ""
+                      }
+                      onChange={(event) =>
+                        setBehaviorOverride(
+                          "tools.usage",
+                          event.target.value === "" ? undefined : event.target.value
+                        )
+                      }
+                    >
+                      <option value="">Inherited ({projectProfile.tools.usage})</option>
+                      <option value="off">Off</option>
+                      <option value="when-useful">When useful</option>
+                      <option value="proactive">Proactive</option>
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <div className="field-heading"><label>External actions</label></div>
+                    <select
+                      value={
+                        typeof activeDraft.behaviorOverrides["tools.confirmExternalActions"] === "boolean"
+                          ? String(activeDraft.behaviorOverrides["tools.confirmExternalActions"])
+                          : ""
+                      }
+                      onChange={(event) =>
+                        setBehaviorOverride(
+                          "tools.confirmExternalActions",
+                          event.target.value === ""
+                            ? undefined
+                            : event.target.value === "true"
+                        )
+                      }
+                    >
+                      <option value="">
+                        Inherited ({projectProfile.tools.confirmExternalActions ? "confirm" : "allowed"})
+                      </option>
+                      <option value="true">Confirm consequential actions</option>
+                      <option value="false">No extra confirmation rule</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="field">
+                  <div className="field-heading"><label>Read-only first</label></div>
+                  <select
+                    value={
+                      typeof activeDraft.behaviorOverrides["tools.preferReadOnly"] === "boolean"
+                        ? String(activeDraft.behaviorOverrides["tools.preferReadOnly"])
+                        : ""
+                    }
+                    onChange={(event) =>
+                      setBehaviorOverride(
+                        "tools.preferReadOnly",
+                        event.target.value === ""
+                          ? undefined
+                          : event.target.value === "true"
+                      )
+                    }
+                  >
+                    <option value="">
+                      Inherited ({projectProfile.tools.preferReadOnly ? "yes" : "no"})
+                    </option>
+                    <option value="true">Prefer read-only inspection</option>
+                    <option value="false">No read-only preference</option>
+                  </select>
                 </div>
 
                 <div className="field">
@@ -1096,7 +1183,7 @@ export default function PromptStudioView({
                     onChange={(event) =>
                       setBehaviorOverride(
                         "research.rigor",
-                        event.target.value === "" ? undefined : Number(event.target.value)
+                        scoreBehaviorOverride(event.target.value)
                       )
                     }
                   />
