@@ -61,6 +61,7 @@ docs/
   registry.md
   adding-a-target.md
   export-formats.md
+  token-counting.md
 ```
 
 ## Development
