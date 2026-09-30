@@ -21,12 +21,12 @@ The roadmap is ordered by dependency, not by visual appeal.
 - credential verification
 - native OpenAI, Anthropic, and Gemini execution adapters
 - exact provider token preflight where a supported counting endpoint exists
+- streaming provider execution with cancellation
 
 ## Next
 
 - project and model-specific profile overrides
 - model-specific compiler refinements
-- streaming and cancellation for provider execution
 - reusable conversation runtime
 - MCP server
 - CLI
