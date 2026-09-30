@@ -13,6 +13,7 @@ describe("prompt draft documents", () => {
       id: "review-service",
       name: "Review Service",
       profileId: "principal-engineer",
+      projectId: "payments",
       target: {
         surfaceId: "openai-api-user",
         modelId: "gpt-5.6-sol",
@@ -36,6 +37,7 @@ describe("prompt draft documents", () => {
     expect(draft.target.optimization).toBe("maximum-fidelity")
     expect(draft.brief.purpose).toBe("research")
     expect(draft.behaviorOverrides["communication.verbosity"]).toBe("high")
+    expect(draft.projectId).toBe("payments")
   })
 
   it("updates content without changing creation time", () => {
@@ -77,6 +79,7 @@ describe("prompt draft documents", () => {
     expect(copy.name).toBe("Draft Copy")
     expect(copy.brief).toEqual(draft.brief)
     expect(copy.behaviorOverrides).toEqual(draft.behaviorOverrides)
+    expect(copy.projectId).toBe(draft.projectId)
   })
 
   it("migrates schema v1 drafts with no behavior overrides", () => {
@@ -98,8 +101,42 @@ describe("prompt draft documents", () => {
 
     const migrated = parsePromptDraftDocument(legacy)
 
-    expect(migrated.schemaVersion).toBe(2)
+    expect(migrated.schemaVersion).toBe(3)
     expect(migrated.behaviorOverrides).toEqual({})
+    expect(migrated.projectId).toBeNull()
+  })
+
+  it("migrates schema v2 drafts without a project reference", () => {
+    const current = createPromptDraftDocument({
+      id: "legacy-v2",
+      profileId: "principal-engineer",
+      behaviorOverrides: { "research.rigor": 100 },
+      target: { surfaceId: "chatgpt-user-prompt" },
+      now: "2026-09-30T14:00:00.000Z"
+    })
+    const { projectId: _projectId, ...legacy } = current
+
+    const migrated = parsePromptDraftDocument(
+      JSON.stringify({ ...legacy, schemaVersion: 2 })
+    )
+
+    expect(migrated.schemaVersion).toBe(3)
+    expect(migrated.projectId).toBeNull()
+    expect(migrated.behaviorOverrides["research.rigor"]).toBe(100)
+  })
+
+  it("rejects invalid project references", () => {
+    const draft = createPromptDraftDocument({
+      id: "draft",
+      profileId: "principal-engineer",
+      target: { surfaceId: "chatgpt-user-prompt" }
+    })
+
+    expect(() =>
+      parsePromptDraftDocument(
+        JSON.stringify({ ...draft, projectId: 42 })
+      )
+    ).toThrow("invalid or incomplete")
   })
 
   it("rejects invalid behavior overrides", () => {
