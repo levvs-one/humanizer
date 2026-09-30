@@ -26,8 +26,9 @@ import {
   savePromptDrafts
 } from "./prompt-draft-storage"
 import {
+  cancelProviderStream,
   countProviderTokens,
-  executeProviderPrompt,
+  streamProviderPrompt,
   supportsExactTokenPreflight,
   type ExecutePromptResponse
 } from "./runtime"
@@ -55,6 +56,15 @@ function formatTokens(value: number | null): string {
   }
   if (value >= 1_000) return Math.round(value / 1_000) + "K tokens"
   return value.toLocaleString() + " tokens"
+}
+
+
+function createRunId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID()
+  }
+
+  return "run-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10)
 }
 
 
@@ -124,6 +134,7 @@ export default function PromptStudioView({
   const [importError, setImportError] = useState<string | null>(null)
   const [runInputs, setRunInputs] = useState<Record<string, string>>({})
   const [executing, setExecuting] = useState(false)
+  const [activeRunId, setActiveRunId] = useState<string | null>(null)
   const [executionError, setExecutionError] = useState<string | null>(null)
   const [countingTokens, setCountingTokens] = useState(false)
   const [tokenCountError, setTokenCountError] = useState<string | null>(null)
@@ -403,37 +414,106 @@ export default function PromptStudioView({
   }
 
   async function runPrompt() {
-    if (!canExecute) return
+    if (!canExecute || executing) return
+
+    const runId = createRunId()
+    const runDraftId = activeDraft.id
+    const runModelId = activeModel.id
+    const runSurfaceId = activeSurface.id
+    const runProvider = activeModel.provider
 
     setExecuting(true)
+    setActiveRunId(runId)
     setExecutionError(null)
+    setExecution({
+      draftId: runDraftId,
+      modelId: runModelId,
+      surfaceId: runSurfaceId,
+      response: {
+        provider: runProvider,
+        model: runModelId,
+        text: "",
+        inputTokens: null,
+        outputTokens: null
+      }
+    })
 
     try {
-      const response = await executeProviderPrompt({
-        provider: activeModel.provider,
-        model: activeModel.id,
-        instructionRole: activeSurface.instructionRole,
-        prompt: result.text,
-        ...(requiresRuntimeInput ? { runtimeInput } : {})
-      })
+      await streamProviderPrompt(
+        {
+          provider: runProvider,
+          model: runModelId,
+          instructionRole: activeSurface.instructionRole,
+          prompt: result.text,
+          ...(requiresRuntimeInput ? { runtimeInput } : {})
+        },
+        runId,
+        (event) => {
+          if (event.event === "delta") {
+            setExecution((current) => {
+              if (
+                !current ||
+                current.draftId !== runDraftId ||
+                current.modelId !== runModelId ||
+                current.surfaceId !== runSurfaceId
+              ) {
+                return current
+              }
 
-      setExecution({
-        draftId: activeDraft.id,
-        modelId: activeModel.id,
-        surfaceId: activeSurface.id,
-        response
-      })
+              return {
+                ...current,
+                response: {
+                  ...current.response,
+                  text: current.response.text + event.data.text
+                }
+              }
+            })
+            return
+          }
 
-      if (response.inputTokens !== null) {
-        setTokenCount({
-          signature: tokenCountSignature,
-          inputTokens: response.inputTokens
-        })
-      }
+          if (event.event === "usage") {
+            setExecution((current) => {
+              if (
+                !current ||
+                current.draftId !== runDraftId ||
+                current.modelId !== runModelId ||
+                current.surfaceId !== runSurfaceId
+              ) {
+                return current
+              }
+
+              return {
+                ...current,
+                response: {
+                  ...current.response,
+                  inputTokens: event.data.inputTokens,
+                  outputTokens: event.data.outputTokens
+                }
+              }
+            })
+
+            if (event.data.inputTokens !== null) {
+              setTokenCount({
+                signature: tokenCountSignature,
+                inputTokens: event.data.inputTokens
+              })
+            }
+            return
+          }
+
+          if (event.event === "error") {
+            setExecutionError(event.data.message)
+            return
+          }
+
+          if (event.event === "finished") {
+            setExecuting(false)
+            setActiveRunId((current) => (current === runId ? null : current))
+          }
+        }
+      )
     } catch (reason) {
-      const message =
-        reason instanceof Error ? reason.message : String(reason)
-
+      const message = reason instanceof Error ? reason.message : String(reason)
       setExecutionError(
         message.includes("No stored API key")
           ? "No API key is configured for this provider. Add one in Settings."
@@ -441,6 +521,17 @@ export default function PromptStudioView({
       )
     } finally {
       setExecuting(false)
+      setActiveRunId((current) => (current === runId ? null : current))
+    }
+  }
+
+  async function cancelRun() {
+    if (!activeRunId) return
+
+    try {
+      await cancelProviderStream(activeRunId)
+    } catch (reason) {
+      setExecutionError(reason instanceof Error ? reason.message : String(reason))
     }
   }
 
@@ -729,12 +820,14 @@ export default function PromptStudioView({
 
               <div className="runtime-actions">
                 <button
-                  className="primary-button"
+                  className={executing ? "secondary-button" : "primary-button"}
                   type="button"
-                  disabled={!canExecute || executing}
-                  onClick={() => void runPrompt()}
+                  disabled={!executing && !canExecute}
+                  onClick={() => void (executing ? cancelRun() : runPrompt())}
                 >
-                  {executing ? "Running" : "Run with " + providerLabels[activeModel.provider]}
+                  {executing
+                    ? "Cancel run"
+                    : "Run with " + providerLabels[activeModel.provider]}
                 </button>
                 <span>Responses are not saved.</span>
               </div>
