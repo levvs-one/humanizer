@@ -7,12 +7,12 @@ import {
 const STORAGE_KEY = "humanizer.projects.v1"
 
 export function loadProjects(): ProjectDocument[] {
-  const serialized = window.localStorage.getItem(STORAGE_KEY)
-  if (!serialized) {
-    return []
-  }
-
   try {
+    const serialized = window.localStorage.getItem(STORAGE_KEY)
+    if (!serialized) {
+      return []
+    }
+
     const values: unknown = JSON.parse(serialized)
     if (!Array.isArray(values)) {
       return []
@@ -30,8 +30,13 @@ export function loadProjects(): ProjectDocument[] {
   }
 }
 
-export function saveProjects(projects: readonly ProjectDocument[]): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
+export function saveProjects(projects: readonly ProjectDocument[]): boolean {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(projects))
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function downloadProject(project: ProjectDocument): void {
