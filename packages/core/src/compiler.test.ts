@@ -76,3 +76,38 @@ describe("compilePrompt", () => {
     expect(result.text).toContain(objective)
   })
 })
+
+
+describe("task-specific compilation", () => {
+  it("puts task intent first for user prompts", () => {
+    const result = compilePrompt({
+      profile,
+      brief: {
+        goal: "Review the supplied implementation and propose the smallest safe fix.",
+        context: "The project uses TypeScript.",
+        output: "Return the cause, patch plan, and verification steps.",
+        constraints: "Do not invent library APIs."
+      },
+      target: {
+        surfaceId: "openai-api-user",
+        modelId: "gpt-5.6-sol"
+      }
+    })
+
+    expect(result.text.startsWith("Task\nReview the supplied implementation")).toBe(true)
+    expect(result.text).toContain("Constraints\nDo not invent library APIs.")
+    expect(result.model?.id).toBe("gpt-5.6-sol")
+  })
+
+  it("warns when a model and target provider do not match", () => {
+    const result = compilePrompt({
+      profile,
+      target: {
+        surfaceId: "anthropic-api-system",
+        modelId: "gpt-5.6-sol"
+      }
+    })
+
+    expect(result.warnings.some((warning) => warning.includes("does not match"))).toBe(true)
+  })
+})
