@@ -27,6 +27,7 @@ import {
   createConversationSessionKey,
   loadConversationSessions,
   removeConversationSession,
+  removeConversationSessionsForDraft,
   saveConversationSessions,
   upsertConversationSession,
   type ConversationSession
@@ -520,11 +521,18 @@ export default function PromptStudioView({
   }
 
   function deleteDraft() {
-    if (drafts.length <= 1) return
+    if (drafts.length <= 1 || executing) return
 
-    const next = drafts.filter((entry) => entry.id !== activeDraft.id)
+    const deletedDraftId = activeDraft.id
+    const next = drafts.filter((entry) => entry.id !== deletedDraftId)
     setDrafts(next)
+    setConversationSessions((current) =>
+      removeConversationSessionsForDraft(current, deletedDraftId)
+    )
     setActiveDraftId(next[0]?.id ?? "")
+    setExecution((current) =>
+      current?.draftId === deletedDraftId ? null : current
+    )
     setImportError(null)
   }
 
@@ -720,6 +728,7 @@ export default function PromptStudioView({
                 return upsertConversationSession(
                   current,
                   runConversationKey,
+                  runDraftId,
                   [
                     ...existing,
                     { role: "user", text: runRuntimeInput },
@@ -829,7 +838,7 @@ export default function PromptStudioView({
           <button
             className="plain-button danger"
             type="button"
-            disabled={drafts.length <= 1}
+            disabled={drafts.length <= 1 || executing}
             onClick={deleteDraft}
           >
             Delete
