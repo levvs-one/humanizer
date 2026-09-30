@@ -1,12 +1,18 @@
 import { Channel, invoke } from "@tauri-apps/api/core"
 import type { ProviderId } from "@humanizer/core"
 
+export interface RuntimeMessage {
+  role: "user" | "assistant"
+  text: string
+}
+
 export interface ExecutePromptRequest {
   provider: ProviderId
   model: string
   instructionRole: "persistent" | "developer" | "system" | "user"
   prompt: string
   runtimeInput?: string
+  history?: RuntimeMessage[]
 }
 
 export interface ExecutePromptResponse {
