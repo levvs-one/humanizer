@@ -23,8 +23,13 @@ const UNCERTAINTY_HANDLING: readonly UncertaintyHandling[] = [
   "strict"
 ]
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value)
+function isBehaviorScore(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 100
+  )
 }
 
 function isBoolean(value: unknown): value is boolean {
@@ -54,7 +59,7 @@ export function isBehaviorOverrideValue(
     case "reasoning.initiative":
     case "reasoning.verification":
     case "research.rigor":
-      return isFiniteNumber(value)
+      return isBehaviorScore(value)
     case "communication.verbosity":
       return typeof value === "string" && VERBOSITIES.includes(value as Verbosity)
     case "reasoning.uncertaintyHandling":
