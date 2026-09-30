@@ -273,7 +273,7 @@ export default function ProjectScopePanel({
                 </div>
               </div>
 
-              <div className="profile-inline-actions">
+              <div className="draft-actions">
                 {overrideCount > 0 ? (
                   <button
                     className="plain-button"
