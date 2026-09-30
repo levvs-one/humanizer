@@ -9,7 +9,14 @@ const profile: BehaviorProfile = {
   communication: {
     naturalness: 90,
     directness: 90,
+    formality: 35,
+    humor: 12,
     verbosity: "low"
+  },
+  reasoning: {
+    initiative: 92,
+    verification: 96,
+    uncertaintyHandling: "quiet"
   },
   research: {
     rigor: 90,
