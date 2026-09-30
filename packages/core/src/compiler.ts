@@ -77,30 +77,45 @@ export function compilePrompt(request: CompileRequest): CompileResult {
   const limit = resolveCharacterLimit(surface, request.target.plan)
   const ir = buildPromptIR(request.profile, request.brief)
   const blocks = orderBlocks(ir.blocks, surface)
+  const optimization = request.target.optimization ?? "balanced"
   const variants = new Map<string, "full" | "compact">(
-    blocks.map((block) => [block.id, "full"])
+    blocks.map((block) => [
+      block.id,
+      optimization === "compact" ? "compact" : "full"
+    ])
   )
   const omitted = new Set<string>()
-  const compactedBlocks: string[] = []
+  const compactedBlocks: string[] =
+    optimization === "compact"
+      ? blocks
+          .filter((block) => block.compact.length < block.full.length)
+          .map((block) => block.id)
+      : []
   const omittedBlocks: string[] = []
 
   let text = render(blocks, variants, omitted, surface)
 
-  if (limit !== null && text.length > limit) {
+  if (
+    limit !== null &&
+    text.length > limit &&
+    optimization !== "maximum-fidelity"
+  ) {
     const byAscendingPriority = [...blocks].sort((a, b) => a.priority - b.priority)
 
-    for (const block of byAscendingPriority) {
-      if (text.length <= limit) {
-        break
-      }
+    if (optimization === "balanced") {
+      for (const block of byAscendingPriority) {
+        if (text.length <= limit) {
+          break
+        }
 
-      if (block.compact.length >= block.full.length) {
-        continue
-      }
+        if (block.compact.length >= block.full.length) {
+          continue
+        }
 
-      variants.set(block.id, "compact")
-      compactedBlocks.push(block.id)
-      text = render(blocks, variants, omitted, surface)
+        variants.set(block.id, "compact")
+        compactedBlocks.push(block.id)
+        text = render(blocks, variants, omitted, surface)
+      }
     }
 
     for (const block of byAscendingPriority) {
@@ -138,9 +153,18 @@ export function compilePrompt(request: CompileRequest): CompileResult {
   const status =
     limit === null ? "no-verified-limit" : text.length <= limit ? "fits" : "overflow"
 
+  if (
+    surface.instructionRole === "user" &&
+    !request.brief?.goal.trim()
+  ) {
+    warnings.push("Add a task. This user prompt currently contains behavior without a concrete job.")
+  }
+
   if (status === "overflow") {
     warnings.push(
-      "Critical intent does not fit the verified limit. Humanizer did not truncate it."
+      optimization === "maximum-fidelity"
+        ? "Maximum fidelity keeps every instruction intact. Switch to Balanced or Compact to optimize for this target."
+        : "Critical intent does not fit the verified limit. Humanizer did not truncate it."
     )
   }
 
@@ -153,6 +177,7 @@ export function compilePrompt(request: CompileRequest): CompileResult {
     omittedBlocks,
     warnings,
     surface,
-    model
+    model,
+    optimization
   }
 }
