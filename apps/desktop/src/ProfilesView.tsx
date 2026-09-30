@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
 import {
+  BEHAVIOR_FIELD_PATHS,
   createDerivedProfileDocument,
   createProfileDocument,
   detachProfileDocument,
@@ -160,7 +161,7 @@ export default function ProfilesView({
           const overrideCount =
             profile.baseProfileId === null
               ? 0
-              : 17 - profile.inheritedFields.length
+              : BEHAVIOR_FIELD_PATHS.length - profile.inheritedFields.length
 
           return (
             <article
