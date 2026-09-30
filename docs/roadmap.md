@@ -18,9 +18,7 @@ The roadmap is ordered by dependency, not by visual appeal.
 ## Next
 
 - model-specific compiler refinements
-- token counting through provider-native or verified tokenizers
 - profile inheritance and project overrides
-- prompt draft persistence and export formats
 - provider execution adapters
 - MCP server
 - CLI
