@@ -174,32 +174,32 @@ function researchInstruction(profile: BehaviorProfile): string {
 
 function toolInstruction(profile: BehaviorProfile): { full: string; compact: string; required: boolean } {
   const rules: string[] = []
+  const compactRules: string[] = []
 
   if (profile.tools.usage === "off") {
     rules.push("Do not use external tools, browsing, code execution, or side-effecting actions.")
+    compactRules.push("Do not use external tools or actions.")
   } else if (profile.tools.usage === "proactive") {
     rules.push("Use available tools proactively when they materially improve accuracy, speed, or task completion.")
+    compactRules.push("Use available tools proactively when they materially help.")
   } else {
     rules.push("Use available tools when they materially reduce uncertainty or manual work.")
+    compactRules.push("Use tools when they materially reduce uncertainty or manual work.")
   }
 
   if (profile.tools.preferReadOnly) {
     rules.push("Inspect and gather information with read-only actions before modifying external state.")
+    compactRules.push("Inspect read-only first.")
   }
 
   if (profile.tools.confirmExternalActions) {
     rules.push("Get explicit confirmation before irreversible, destructive, financial, publishing, or external side-effect actions.")
+    compactRules.push("Confirm consequential external actions first.")
   }
 
-  const full = rules.join(" ")
   return {
-    full,
-    compact:
-      profile.tools.usage === "off"
-        ? "Do not use external tools or actions."
-        : profile.tools.confirmExternalActions
-          ? "Use tools when allowed; prefer read-only inspection and confirm consequential external actions."
-          : "Use tools according to the configured policy and prefer reversible actions.",
+    full: rules.join(" "),
+    compact: compactRules.join(" "),
     required: profile.tools.usage === "off" || profile.tools.confirmExternalActions
   }
 }
