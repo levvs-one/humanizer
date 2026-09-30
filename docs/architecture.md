@@ -34,6 +34,12 @@ A behavior profile describes role, communication, research, uncertainty handling
 
 Profiles support live inheritance. A derived profile stores its base profile id plus the set of fields that still inherit. Editing an inherited field turns only that field into a local override. Changes to every other inherited field continue to flow from the base. Detaching materializes the current resolved behavior into an independent profile.
 
+### Project scopes
+
+A project scope is a reusable local document that groups behavior overrides shared by multiple prompt drafts. It does not duplicate the base profile; it stores only the fields that differ for that project.
+
+Project scope documents are versioned, portable structured data. Draft-level overrides remain narrower and are applied after project overrides.
+
 ### Scoped behavior overrides
 
 Prompt drafts can apply local behavior overrides without modifying or duplicating the referenced profile. Overrides are stored by stable behavior field path and resolved on top of the profile before Prompt IR is built.
@@ -42,7 +48,8 @@ This creates an explicit layering model:
 
 ```text
 resolved profile
-  + project/task overrides
+  + project overrides
+  + draft/task overrides
   + narrower model/runtime overrides later
   = effective behavior
 ```
