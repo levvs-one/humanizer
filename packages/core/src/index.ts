@@ -49,6 +49,7 @@ export type {
   PromptTarget,
   ProviderId,
   SourceReference,
+  TokenCountingMode,
   UncertaintyHandling,
   Verbosity
 } from "./types"
