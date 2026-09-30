@@ -67,6 +67,27 @@ Official references:
 
 Verified: 2026-09-30
 
+## Streaming and cancellation
+
+Manual API runs stream visible text into Prompt Studio as it arrives.
+
+Humanizer uses Tauri IPC channels between the native runtime and the webview. Provider wire formats remain inside the Rust layer.
+
+- OpenAI Responses runs use `stream: true` and consume `response.output_text.delta` events.
+- Anthropic Messages runs use `stream: true` and consume only `text_delta` content blocks. Thinking deltas are not forwarded to the interface.
+- Gemini uses `streamGenerateContent?alt=sse` and consumes streamed `GenerateContentResponse` chunks.
+
+Each run receives a unique local run id. Cancel marks that run as cancelled in native state; the response stream is dropped on the next read boundary. Run state is removed whether the stream completes, fails, or is cancelled.
+
+Official references:
+
+- https://developers.openai.com/api/docs/guides/streaming-responses
+- https://platform.claude.com/docs/en/build-with-claude/streaming
+- https://ai.google.dev/api/generate-content
+- https://v2.tauri.app/fr/develop/calling-frontend/
+
+Verified: 2026-09-30
+
 ## Data handling
 
 Humanizer does not persist provider responses from manual Studio runs.
