@@ -1,12 +1,13 @@
 import type { RuntimeMessage } from "./runtime"
 
 const STORAGE_KEY = "humanizer.conversations.v1"
-const SCHEMA_VERSION = 1 as const
+const SCHEMA_VERSION = 2 as const
 const MAX_SESSIONS = 30
 const MAX_MESSAGES_PER_SESSION = 100
 
 export interface ConversationSession {
   key: string
+  draftId: string | null
   messages: RuntimeMessage[]
   updatedAt: string
 }
@@ -21,33 +22,74 @@ interface ConversationStore {
   sessions: ConversationSession[]
 }
 
+interface LegacyConversationSession {
+  key: string
+  messages: RuntimeMessage[]
+  updatedAt: string
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
 function isRuntimeMessage(value: unknown): value is RuntimeMessage {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return false
   }
 
-  const record = value as Record<string, unknown>
   return (
-    (record.role === "user" || record.role === "assistant") &&
-    typeof record.text === "string" &&
-    record.text.trim().length > 0
+    (value.role === "user" || value.role === "assistant") &&
+    typeof value.text === "string" &&
+    value.text.trim().length > 0
+  )
+}
+
+function hasConversationFields(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.key === "string" &&
+    value.key.length > 0 &&
+    typeof value.updatedAt === "string" &&
+    !Number.isNaN(Date.parse(value.updatedAt)) &&
+    Array.isArray(value.messages) &&
+    value.messages.every(isRuntimeMessage)
   )
 }
 
 function isConversationSession(value: unknown): value is ConversationSession {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false
+  return (
+    isRecord(value) &&
+    hasConversationFields(value) &&
+    (value.draftId === null || typeof value.draftId === "string")
+  )
+}
+
+function isLegacyConversationSession(
+  value: unknown
+): value is LegacyConversationSession {
+  return isRecord(value) && hasConversationFields(value)
+}
+
+function parseConversationStore(value: unknown): ConversationSession[] | null {
+  if (!isRecord(value) || !Array.isArray(value.sessions)) {
+    return null
   }
 
-  const record = value as Record<string, unknown>
-  return (
-    typeof record.key === "string" &&
-    record.key.length > 0 &&
-    typeof record.updatedAt === "string" &&
-    !Number.isNaN(Date.parse(record.updatedAt)) &&
-    Array.isArray(record.messages) &&
-    record.messages.every(isRuntimeMessage)
-  )
+  if (value.schemaVersion === SCHEMA_VERSION) {
+    return value.sessions.filter(isConversationSession)
+  }
+
+  if (value.schemaVersion === 1) {
+    return value.sessions
+      .filter(isLegacyConversationSession)
+      .map((session) => ({
+        key: session.key,
+        draftId: null,
+        messages: session.messages.map((message) => ({ ...message })),
+        updatedAt: session.updatedAt
+      }))
+  }
+
+  return null
 }
 
 function textFingerprint(value: string): string {
@@ -90,6 +132,7 @@ function normalizeSessions(
     .filter((session) => session.messages.length > 0)
     .map((session) => ({
       key: session.key,
+      draftId: session.draftId,
       messages: session.messages
         .slice(-MAX_MESSAGES_PER_SESSION)
         .map((message) => ({ ...message })),
@@ -109,27 +152,9 @@ export function loadConversationSessions(): LoadedConversationSessions {
       return { sessions: [], storageAvailable: true }
     }
 
-    const value: unknown = JSON.parse(serialized)
-    if (
-      typeof value !== "object" ||
-      value === null ||
-      Array.isArray(value)
-    ) {
-      return { sessions: [], storageAvailable: true }
-    }
-
-    const record = value as Record<string, unknown>
-    if (
-      record.schemaVersion !== SCHEMA_VERSION ||
-      !Array.isArray(record.sessions)
-    ) {
-      return { sessions: [], storageAvailable: true }
-    }
-
+    const sessions = parseConversationStore(JSON.parse(serialized))
     return {
-      sessions: normalizeSessions(
-        record.sessions.filter(isConversationSession)
-      ),
+      sessions: sessions === null ? [] : normalizeSessions(sessions),
       storageAvailable: true
     }
   } catch {
@@ -160,30 +185,16 @@ export function clearStoredConversationSession(key: string): boolean {
       return true
     }
 
-    const value: unknown = JSON.parse(serialized)
-    if (
-      typeof value !== "object" ||
-      value === null ||
-      Array.isArray(value)
-    ) {
+    const sessions = parseConversationStore(JSON.parse(serialized))
+    if (sessions === null) {
       return true
     }
-
-    const record = value as Record<string, unknown>
-    if (
-      record.schemaVersion !== SCHEMA_VERSION ||
-      !Array.isArray(record.sessions)
-    ) {
-      return true
-    }
-
-    const sessions = record.sessions
-      .filter(isConversationSession)
-      .filter((session) => session.key !== key)
 
     const store: ConversationStore = {
       schemaVersion: SCHEMA_VERSION,
-      sessions: normalizeSessions(sessions)
+      sessions: normalizeSessions(
+        sessions.filter((session) => session.key !== key)
+      )
     }
 
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
@@ -196,6 +207,7 @@ export function clearStoredConversationSession(key: string): boolean {
 export function upsertConversationSession(
   sessions: readonly ConversationSession[],
   key: string,
+  draftId: string,
   messages: readonly RuntimeMessage[],
   now = new Date().toISOString()
 ): ConversationSession[] {
@@ -204,6 +216,7 @@ export function upsertConversationSession(
   if (messages.length > 0) {
     next.push({
       key,
+      draftId,
       messages: messages.map((message) => ({ ...message })),
       updatedAt: now
     })
@@ -217,6 +230,13 @@ export function removeConversationSession(
   key: string
 ): ConversationSession[] {
   return sessions.filter((session) => session.key !== key)
+}
+
+export function removeConversationSessionsForDraft(
+  sessions: readonly ConversationSession[],
+  draftId: string
+): ConversationSession[] {
+  return sessions.filter((session) => session.draftId !== draftId)
 }
 
 export function conversationSessionMap(
