@@ -29,6 +29,11 @@ const profile: BehaviorProfile = {
     preferPrimarySources: true,
     allowCommunitySources: true
   },
+  tools: {
+    usage: "when-useful",
+    confirmExternalActions: true,
+    preferReadOnly: true
+  },
   writing: {
     avoidAISlop: true,
     avoidUnnecessaryHeadings: true,
@@ -73,6 +78,17 @@ describe("behavior overrides", () => {
     expect(isBehaviorOverrideSet({ "communication.directness": 101 })).toBe(false)
     expect(isBehaviorOverrideSet({ "communication.directness": -1 })).toBe(false)
     expect(isBehaviorOverrideSet({ unknown: true })).toBe(false)
+  })
+
+  it("applies scoped tool policy overrides", () => {
+    const resolved = applyBehaviorOverrides(profile, {
+      "tools.usage": "off",
+      "tools.confirmExternalActions": false
+    })
+
+    expect(resolved.tools.usage).toBe("off")
+    expect(resolved.tools.confirmExternalActions).toBe(false)
+    expect(resolved.tools.preferReadOnly).toBe(true)
   })
 
   it("counts only explicit overrides", () => {
