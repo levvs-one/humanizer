@@ -106,6 +106,8 @@ For instruction-style API targets, completed multi-turn responses are saved in v
 
 Conversation storage is bounded: Humanizer retains at most 30 local sessions and 100 messages per session. Clearing a conversation removes that session from local storage.
 
+If browser-local storage is unavailable or a write fails, the active conversation continues in memory and Prompt Studio reports that the session is not being persisted instead of interrupting the run.
+
 The runtime returns response text and provider-reported token usage to the webview. The saved API key is never returned.
 
 Provider retention and data-processing behavior remains subject to the provider account and API policies.
