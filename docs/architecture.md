@@ -28,7 +28,9 @@ Prompt
 
 ### Behavior profile
 
-A behavior profile describes role, communication, research, uncertainty handling, initiative, writing style, and tool policy. Profiles can later inherit from other profiles without copying prompt text.
+A behavior profile describes role, communication, research, uncertainty handling, initiative, writing style, and tool policy.
+
+Profiles support live inheritance. A derived profile stores its base profile id plus the set of fields that still inherit. Editing an inherited field turns only that field into a local override. Changes to every other inherited field continue to flow from the base. Detaching materializes the current resolved behavior into an independent profile.
 
 ### Target surface
 
@@ -70,7 +72,7 @@ Remote services are reserved for signed registry updates, optional sync, release
 The monorepo is intentionally small at the start. Split packages only when boundaries become real:
 
 - conversation runtime
-- profile inheritance
+- project and model override scopes
 - evaluation harness
 - MCP server
 - research policy engine
