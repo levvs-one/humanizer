@@ -9,6 +9,7 @@ import {
   getProjectModelOverrides,
   MODELS,
   parsePromptDraftDocument,
+  repairPromptDraftReferences,
   SURFACES,
   updatePromptDraftDocument,
   type BehaviorFieldPath,
@@ -226,6 +227,51 @@ export default function PromptStudioView({
       setConversationStorageAvailable(false)
     }
   }, [conversationSessions, conversationStorageAvailable])
+
+  useEffect(() => {
+    const fallbackProfileId =
+      profiles.some((profile) => profile.id === defaultProfileId)
+        ? defaultProfileId
+        : profiles[0]?.id
+
+    if (!fallbackProfileId) {
+      return
+    }
+
+    const context = {
+      profileIds: profiles.map((profile) => profile.id),
+      projectIds: projects.map((project) => project.id),
+      fallbackProfileId
+    }
+
+    const repairedDraftIds: string[] = []
+    const repairedDrafts = drafts.map((entry) => {
+      const repaired = repairPromptDraftReferences(entry, context)
+
+      if (repaired !== entry) {
+        repairedDraftIds.push(entry.id)
+      }
+
+      return repaired
+    })
+
+    if (repairedDraftIds.length === 0) {
+      return
+    }
+
+    setDrafts(repairedDrafts)
+    setConversationSessions((current) =>
+      repairedDraftIds.reduce(
+        (sessions, draftId) =>
+          removeConversationSessionsForDraft(sessions, draftId),
+        current
+      )
+    )
+    setExecution((current) =>
+      current && repairedDraftIds.includes(current.draftId) ? null : current
+    )
+    setTokenCount(null)
+  }, [drafts, profiles, projects, defaultProfileId])
 
   if (!draft) {
     return null
