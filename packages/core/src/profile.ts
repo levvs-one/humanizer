@@ -1,6 +1,9 @@
-import type { BehaviorProfile } from "./types"
+import type {
+  BehaviorProfile,
+  UncertaintyHandling
+} from "./types"
 
-export const PROFILE_SCHEMA_VERSION = 1 as const
+export const PROFILE_SCHEMA_VERSION = 2 as const
 
 export interface ProfileDocument {
   schemaVersion: typeof PROFILE_SCHEMA_VERSION
@@ -20,6 +23,19 @@ export interface CreateProfileInput {
   now?: string
 }
 
+interface LegacyBehaviorProfileV1 {
+  role: string
+  objective: string
+  purpose: BehaviorProfile["purpose"]
+  communication: {
+    naturalness: number
+    directness: number
+    verbosity: BehaviorProfile["communication"]["verbosity"]
+  }
+  research: BehaviorProfile["research"]
+  writing: BehaviorProfile["writing"]
+}
+
 function createId(): string {
   if (typeof globalThis.crypto?.randomUUID === "function") {
     return globalThis.crypto.randomUUID()
@@ -36,32 +52,105 @@ function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value)
 }
 
-function isBehaviorProfile(value: unknown): value is BehaviorProfile {
-  if (!isRecord(value)) {
-    return false
-  }
+function isPurpose(value: unknown): value is BehaviorProfile["purpose"] {
+  return ["general", "engineering", "research", "writing", "agent"].includes(String(value))
+}
+
+function isVerbosity(
+  value: unknown
+): value is BehaviorProfile["communication"]["verbosity"] {
+  return ["low", "medium", "high"].includes(String(value))
+}
+
+function isUncertaintyHandling(value: unknown): value is UncertaintyHandling {
+  return ["quiet", "explicit", "strict"].includes(String(value))
+}
+
+function hasResearch(value: unknown): value is BehaviorProfile["research"] {
+  if (!isRecord(value)) return false
+
+  return (
+    isNumber(value.rigor) &&
+    typeof value.preferPrimarySources === "boolean" &&
+    typeof value.allowCommunitySources === "boolean"
+  )
+}
+
+function hasWriting(value: unknown): value is BehaviorProfile["writing"] {
+  if (!isRecord(value)) return false
+
+  return (
+    typeof value.avoidAISlop === "boolean" &&
+    typeof value.avoidUnnecessaryHeadings === "boolean" &&
+    typeof value.avoidRestatingPrompt === "boolean"
+  )
+}
+
+function isBehaviorProfileV2(value: unknown): value is BehaviorProfile {
+  if (!isRecord(value)) return false
 
   const communication = value.communication
-  const research = value.research
-  const writing = value.writing
+  const reasoning = value.reasoning
 
   return (
     typeof value.role === "string" &&
     typeof value.objective === "string" &&
-    ["general", "engineering", "research", "writing", "agent"].includes(String(value.purpose)) &&
+    isPurpose(value.purpose) &&
     isRecord(communication) &&
     isNumber(communication.naturalness) &&
     isNumber(communication.directness) &&
-    ["low", "medium", "high"].includes(String(communication.verbosity)) &&
-    isRecord(research) &&
-    isNumber(research.rigor) &&
-    typeof research.preferPrimarySources === "boolean" &&
-    typeof research.allowCommunitySources === "boolean" &&
-    isRecord(writing) &&
-    typeof writing.avoidAISlop === "boolean" &&
-    typeof writing.avoidUnnecessaryHeadings === "boolean" &&
-    typeof writing.avoidRestatingPrompt === "boolean"
+    isNumber(communication.formality) &&
+    isNumber(communication.humor) &&
+    isVerbosity(communication.verbosity) &&
+    isRecord(reasoning) &&
+    isNumber(reasoning.initiative) &&
+    isNumber(reasoning.verification) &&
+    isUncertaintyHandling(reasoning.uncertaintyHandling) &&
+    hasResearch(value.research) &&
+    hasWriting(value.writing)
   )
+}
+
+function isLegacyBehaviorProfileV1(
+  value: unknown
+): value is LegacyBehaviorProfileV1 {
+  if (!isRecord(value)) return false
+
+  const communication = value.communication
+
+  return (
+    typeof value.role === "string" &&
+    typeof value.objective === "string" &&
+    isPurpose(value.purpose) &&
+    isRecord(communication) &&
+    isNumber(communication.naturalness) &&
+    isNumber(communication.directness) &&
+    isVerbosity(communication.verbosity) &&
+    hasResearch(value.research) &&
+    hasWriting(value.writing)
+  )
+}
+
+function migrateProfileV1(profile: LegacyBehaviorProfileV1): BehaviorProfile {
+  return {
+    role: profile.role,
+    objective: profile.objective,
+    purpose: profile.purpose,
+    communication: {
+      naturalness: profile.communication.naturalness,
+      directness: profile.communication.directness,
+      formality: 45,
+      humor: 10,
+      verbosity: profile.communication.verbosity
+    },
+    reasoning: {
+      initiative: 75,
+      verification: 85,
+      uncertaintyHandling: "explicit"
+    },
+    research: structuredClone(profile.research),
+    writing: structuredClone(profile.writing)
+  }
 }
 
 export function createProfileDocument(input: CreateProfileInput): ProfileDocument {
@@ -117,28 +206,44 @@ export function parseProfileDocument(serialized: string): ProfileDocument {
     throw new Error("Profile file must contain an object.")
   }
 
-  if (value.schemaVersion !== PROFILE_SCHEMA_VERSION) {
-    throw new Error("Unsupported profile schema version.")
-  }
+  const hasDocumentFields =
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.description === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string"
 
-  if (
-    typeof value.id !== "string" ||
-    typeof value.name !== "string" ||
-    typeof value.description !== "string" ||
-    typeof value.createdAt !== "string" ||
-    typeof value.updatedAt !== "string" ||
-    !isBehaviorProfile(value.profile)
-  ) {
+  if (!hasDocumentFields) {
     throw new Error("Profile file is invalid or incomplete.")
   }
 
-  return {
-    schemaVersion: PROFILE_SCHEMA_VERSION,
-    id: value.id,
-    name: value.name,
-    description: value.description,
-    profile: structuredClone(value.profile),
-    createdAt: value.createdAt,
-    updatedAt: value.updatedAt
+  if (value.schemaVersion === PROFILE_SCHEMA_VERSION && isBehaviorProfileV2(value.profile)) {
+    return {
+      schemaVersion: PROFILE_SCHEMA_VERSION,
+      id: value.id as string,
+      name: value.name as string,
+      description: value.description as string,
+      profile: structuredClone(value.profile),
+      createdAt: value.createdAt as string,
+      updatedAt: value.updatedAt as string
+    }
   }
+
+  if (value.schemaVersion === 1 && isLegacyBehaviorProfileV1(value.profile)) {
+    return {
+      schemaVersion: PROFILE_SCHEMA_VERSION,
+      id: value.id as string,
+      name: value.name as string,
+      description: value.description as string,
+      profile: migrateProfileV1(value.profile),
+      createdAt: value.createdAt as string,
+      updatedAt: value.updatedAt as string
+    }
+  }
+
+  if (value.schemaVersion !== 1 && value.schemaVersion !== PROFILE_SCHEMA_VERSION) {
+    throw new Error("Unsupported profile schema version.")
+  }
+
+  throw new Error("Profile file is invalid or incomplete.")
 }
