@@ -21,6 +21,7 @@ function orderBlocks(blocks: PromptIRBlock[], surface: PromptSurface): PromptIRB
     "strategy",
     "accuracy",
     "research",
+    "tools",
     "workflow",
     "communication",
     "writing"
@@ -37,6 +38,7 @@ function orderBlocks(blocks: PromptIRBlock[], surface: PromptSurface): PromptIRB
     "rules",
     "accuracy",
     "research",
+    "tools",
     "workflow",
     "communication",
     "writing"
