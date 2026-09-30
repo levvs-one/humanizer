@@ -1177,3 +1177,52 @@ select:focus {
 .prompt-diagnostic.error > span {
   color: #b42318;
 }
+
+
+.token-count-row {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: -2px 0 14px;
+  padding: 8px 0;
+  border-top: 1px solid #ececef;
+  border-bottom: 1px solid #ececef;
+}
+
+.token-count-row > div {
+  display: grid;
+  gap: 2px;
+}
+
+.token-count-row span {
+  color: #8a8a8f;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.token-count-row strong {
+  color: #3a3a3c;
+  font-size: 11.5px;
+  line-height: 1.4;
+  font-weight: 580;
+}
+
+.token-count-row .plain-button {
+  min-height: 30px;
+  padding-right: 6px;
+  padding-left: 6px;
+}
+
+.token-count-row .plain-button:disabled {
+  color: #a1a1a6;
+  cursor: default;
+}
+
+.token-count-error {
+  margin: -6px 0 14px;
+  color: #9f2d25;
+  font-size: 11px;
+  line-height: 1.45;
+}
