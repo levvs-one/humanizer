@@ -1063,3 +1063,18 @@ select:focus {
     flex-wrap: wrap;
   }
 }
+
+
+.target-options,
+.target-options-single {
+  margin-top: 18px;
+}
+
+.target-options-single {
+  max-width: 360px;
+}
+
+.target-options > .field,
+.target-options-single > .field {
+  margin-top: 0;
+}
