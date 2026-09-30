@@ -296,30 +296,6 @@ function HumanizeView({
   )
 }
 
-function PendingView({
-  title,
-  description
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <main className="page">
-      <header className="page-header">
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </header>
-      <section className="empty-state">
-        <h2>Foundation first</h2>
-        <p>
-          This area is part of the product architecture. It will be implemented after the compiler
-          and profile model are stable enough to depend on.
-        </p>
-      </section>
-    </main>
-  )
-}
-
 export default function App() {
   const [view, setView] = useState<View>("humanize")
   const [profiles, setProfiles] = useState<ProfileDocument[]>(() => {
@@ -392,7 +368,7 @@ export default function App() {
     { id: "studio", label: "Prompt Studio" },
     { id: "profiles", label: "Profiles" },
     { id: "test", label: "Test", disabled: true },
-    { id: "integrations", label: "Integrations" }
+    { id: "integrations", label: "Integrations", disabled: true }
   ]
 
   return (
@@ -444,13 +420,6 @@ export default function App() {
             onCreate={addProfile}
             onUpdate={updateDocument}
             onDelete={deleteProfile}
-          />
-        ) : null}
-
-        {view === "integrations" ? (
-          <PendingView
-            title="Integrations"
-            description="Provider APIs, MCP, and local tools will share the same behavior profile and target registry."
           />
         ) : null}
 
