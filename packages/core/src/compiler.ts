@@ -17,6 +17,7 @@ function orderBlocks(blocks: PromptIRBlock[], surface: PromptSurface): PromptIRB
     "constraints",
     "role",
     "objective",
+    "strategy",
     "accuracy",
     "research",
     "workflow",
@@ -27,6 +28,7 @@ function orderBlocks(blocks: PromptIRBlock[], surface: PromptSurface): PromptIRB
   const instructionOrder = [
     "role",
     "objective",
+    "strategy",
     "task",
     "context",
     "output",
