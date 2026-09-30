@@ -3,12 +3,13 @@ import type {
   UncertaintyHandling
 } from "./types"
 
-export const PROFILE_SCHEMA_VERSION = 3 as const
+export const PROFILE_SCHEMA_VERSION = 4 as const
 
 export const BEHAVIOR_FIELD_PATHS = [
   "role",
   "objective",
   "purpose",
+  "customRules",
   "communication.naturalness",
   "communication.directness",
   "communication.formality",
@@ -48,6 +49,8 @@ export interface CreateProfileInput {
   inheritedFields?: BehaviorFieldPath[]
   now?: string
 }
+
+type LegacyBehaviorProfileV3 = Omit<BehaviorProfile, "customRules">
 
 interface LegacyBehaviorProfileV1 {
   role: string
@@ -112,7 +115,7 @@ function hasWriting(value: unknown): value is BehaviorProfile["writing"] {
   )
 }
 
-function isBehaviorProfileV2(value: unknown): value is BehaviorProfile {
+function isLegacyBehaviorProfileV3(value: unknown): value is LegacyBehaviorProfileV3 {
   if (!isRecord(value)) return false
 
   const communication = value.communication
@@ -134,6 +137,15 @@ function isBehaviorProfileV2(value: unknown): value is BehaviorProfile {
     isUncertaintyHandling(reasoning.uncertaintyHandling) &&
     hasResearch(value.research) &&
     hasWriting(value.writing)
+  )
+}
+
+function isBehaviorProfileV4(value: unknown): value is BehaviorProfile {
+  if (!isRecord(value) || !isLegacyBehaviorProfileV3(value)) return false
+
+  return (
+    Array.isArray(value.customRules) &&
+    value.customRules.every((rule) => typeof rule === "string")
   )
 }
 
@@ -169,6 +181,7 @@ function migrateProfileV1(profile: LegacyBehaviorProfileV1): BehaviorProfile {
     role: profile.role,
     objective: profile.objective,
     purpose: profile.purpose,
+    customRules: [],
     communication: {
       naturalness: profile.communication.naturalness,
       directness: profile.communication.directness,
@@ -186,11 +199,30 @@ function migrateProfileV1(profile: LegacyBehaviorProfileV1): BehaviorProfile {
   }
 }
 
+function migrateProfileV3(profile: LegacyBehaviorProfileV3): BehaviorProfile {
+  return {
+    ...structuredClone(profile),
+    customRules: []
+  }
+}
+
+function fieldValuesEqual(left: unknown, right: unknown): boolean {
+  if (Array.isArray(left) && Array.isArray(right)) {
+    return (
+      left.length === right.length &&
+      left.every((value, index) => Object.is(value, right[index]))
+    )
+  }
+
+  return Object.is(left, right)
+}
+
 function fieldValue(profile: BehaviorProfile, path: BehaviorFieldPath): unknown {
   switch (path) {
     case "role": return profile.role
     case "objective": return profile.objective
     case "purpose": return profile.purpose
+    case "customRules": return profile.customRules
     case "communication.naturalness": return profile.communication.naturalness
     case "communication.directness": return profile.communication.directness
     case "communication.formality": return profile.communication.formality
@@ -217,6 +249,7 @@ function inheritField(
     case "role": target.role = base.role; return
     case "objective": target.objective = base.objective; return
     case "purpose": target.purpose = base.purpose; return
+    case "customRules": target.customRules = [...base.customRules]; return
     case "communication.naturalness": target.communication.naturalness = base.communication.naturalness; return
     case "communication.directness": target.communication.directness = base.communication.directness; return
     case "communication.formality": target.communication.formality = base.communication.formality; return
@@ -324,7 +357,7 @@ export function updateProfileBehavior(
   }
 
   const changedFields = BEHAVIOR_FIELD_PATHS.filter(
-    (path) => !Object.is(fieldValue(resolvedBefore, path), fieldValue(nextProfile, path))
+    (path) => !fieldValuesEqual(fieldValue(resolvedBefore, path), fieldValue(nextProfile, path))
   )
   const inheritedFields = source.inheritedFields.filter(
     (path) => !changedFields.includes(path)
@@ -468,7 +501,7 @@ export function parseProfileDocument(serialized: string): ProfileDocument {
 
   if (
     value.schemaVersion === PROFILE_SCHEMA_VERSION &&
-    isBehaviorProfileV2(value.profile) &&
+    isBehaviorProfileV4(value.profile) &&
     (value.baseProfileId === null ||
       (typeof value.baseProfileId === "string" && value.baseProfileId !== value.id)) &&
     Array.isArray(value.inheritedFields) &&
@@ -487,13 +520,41 @@ export function parseProfileDocument(serialized: string): ProfileDocument {
     }
   }
 
-  if (value.schemaVersion === 2 && isBehaviorProfileV2(value.profile)) {
+  if (
+    value.schemaVersion === 3 &&
+    isLegacyBehaviorProfileV3(value.profile) &&
+    (value.baseProfileId === null ||
+      (typeof value.baseProfileId === "string" && value.baseProfileId !== value.id)) &&
+    Array.isArray(value.inheritedFields) &&
+    value.inheritedFields.every(isBehaviorFieldPath)
+  ) {
+    const baseProfileId = value.baseProfileId as string | null
+    const inheritedFields = [...new Set(value.inheritedFields as BehaviorFieldPath[])]
+
+    if (baseProfileId !== null && !inheritedFields.includes("customRules")) {
+      inheritedFields.push("customRules")
+    }
+
+    return {
+      schemaVersion: PROFILE_SCHEMA_VERSION,
+      id: value.id as string,
+      name: value.name as string,
+      description: value.description as string,
+      profile: migrateProfileV3(value.profile),
+      baseProfileId,
+      inheritedFields: baseProfileId === null ? [] : inheritedFields,
+      createdAt: value.createdAt as string,
+      updatedAt: value.updatedAt as string
+    }
+  }
+
+  if (value.schemaVersion === 2 && isLegacyBehaviorProfileV3(value.profile)) {
     return {
       ...createProfileDocument({
         id: value.id as string,
         name: value.name as string,
         description: value.description as string,
-        profile: value.profile,
+        profile: migrateProfileV3(value.profile),
         now: value.createdAt as string
       }),
       updatedAt: value.updatedAt as string
@@ -513,7 +574,7 @@ export function parseProfileDocument(serialized: string): ProfileDocument {
     }
   }
 
-  if (![1, 2, PROFILE_SCHEMA_VERSION].includes(Number(value.schemaVersion))) {
+  if (![1, 2, 3, PROFILE_SCHEMA_VERSION].includes(Number(value.schemaVersion))) {
     throw new Error("Unsupported profile schema version.")
   }
 
