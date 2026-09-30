@@ -210,6 +210,7 @@ export function parsePromptDraftDocument(
 
   if (
     value.schemaVersion === PROMPT_DRAFT_SCHEMA_VERSION &&
+    (value.projectId === null || typeof value.projectId === "string") &&
     isBehaviorOverrideSet(value.behaviorOverrides)
   ) {
     return {
@@ -217,10 +218,7 @@ export function parsePromptDraftDocument(
       id: value.id as string,
       name: value.name as string,
       profileId: value.profileId as string,
-      projectId:
-        value.projectId === null || typeof value.projectId === "string"
-          ? value.projectId
-          : null,
+      projectId: value.projectId as string | null,
       behaviorOverrides: structuredClone(value.behaviorOverrides),
       target: structuredClone(value.target as PromptTarget),
       brief: structuredClone(value.brief as PromptBrief),
