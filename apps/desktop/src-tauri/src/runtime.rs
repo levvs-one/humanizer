@@ -199,6 +199,13 @@ fn google_stream_event(
     Ok((!text.is_empty()).then_some(text))
 }
 
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeMessage {
+    role: String,
+    text: String,
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutePromptRequest {
@@ -207,6 +214,8 @@ pub struct ExecutePromptRequest {
     instruction_role: String,
     prompt: String,
     runtime_input: Option<String>,
+    #[serde(default)]
+    history: Vec<RuntimeMessage>,
 }
 
 #[derive(Serialize)]
@@ -236,6 +245,29 @@ fn normalize_provider(provider: &str) -> Result<&'static str, String> {
     }
 }
 
+fn validated_history(request: &ExecutePromptRequest) -> Result<Vec<RuntimeMessage>, String> {
+    request
+        .history
+        .iter()
+        .map(|message| {
+            let role = message.role.trim().to_ascii_lowercase();
+            if role != "user" && role != "assistant" {
+                return Err("Conversation history contains an unsupported role.".to_string());
+            }
+
+            let text = message.text.trim();
+            if text.is_empty() {
+                return Err("Conversation history contains an empty message.".to_string());
+            }
+
+            Ok(RuntimeMessage {
+                role,
+                text: text.to_string(),
+            })
+        })
+        .collect()
+}
+
 fn runtime_input(request: &ExecutePromptRequest) -> Result<&str, String> {
     request
         .runtime_input
@@ -247,8 +279,22 @@ fn runtime_input(request: &ExecutePromptRequest) -> Result<&str, String> {
         })
 }
 
+fn openai_input_message(message: &RuntimeMessage) -> Value {
+    json!({
+        "role": message.role,
+        "content": [{
+            "type": if message.role == "assistant" { "output_text" } else { "input_text" },
+            "text": message.text
+        }]
+    })
+}
+
 fn build_openai_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
     if request.instruction_role == "user" {
+        if !request.history.is_empty() || request.runtime_input.is_some() {
+            return Err("User prompt surfaces do not support continuation history.".to_string());
+        }
+
         return Ok(json!({
             "model": request.model,
             "input": request.prompt,
@@ -256,16 +302,36 @@ fn build_openai_payload(request: &ExecutePromptRequest) -> Result<Value, String>
         }));
     }
 
+    let mut input = validated_history(request)?
+        .iter()
+        .map(openai_input_message)
+        .collect::<Vec<_>>();
+    input.push(openai_input_message(&RuntimeMessage {
+        role: "user".to_string(),
+        text: runtime_input(request)?.to_string(),
+    }));
+
     Ok(json!({
         "model": request.model,
         "instructions": request.prompt,
-        "input": runtime_input(request)?,
+        "input": input,
         "store": false
     }))
 }
 
+fn anthropic_message(message: &RuntimeMessage) -> Value {
+    json!({
+        "role": message.role,
+        "content": message.text
+    })
+}
+
 fn build_anthropic_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
     if request.instruction_role == "user" {
+        if !request.history.is_empty() || request.runtime_input.is_some() {
+            return Err("User prompt surfaces do not support continuation history.".to_string());
+        }
+
         return Ok(json!({
             "model": request.model,
             "max_tokens": ANTHROPIC_MAX_TOKENS,
@@ -276,19 +342,36 @@ fn build_anthropic_payload(request: &ExecutePromptRequest) -> Result<Value, Stri
         }));
     }
 
+    let mut messages = validated_history(request)?
+        .iter()
+        .map(anthropic_message)
+        .collect::<Vec<_>>();
+    messages.push(anthropic_message(&RuntimeMessage {
+        role: "user".to_string(),
+        text: runtime_input(request)?.to_string(),
+    }));
+
     Ok(json!({
         "model": request.model,
         "max_tokens": ANTHROPIC_MAX_TOKENS,
         "system": request.prompt,
-        "messages": [{
-            "role": "user",
-            "content": runtime_input(request)?
-        }]
+        "messages": messages
     }))
+}
+
+fn google_content(message: &RuntimeMessage) -> Value {
+    json!({
+        "role": if message.role == "assistant" { "model" } else { "user" },
+        "parts": [{ "text": message.text }]
+    })
 }
 
 fn build_google_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
     if request.instruction_role == "user" {
+        if !request.history.is_empty() || request.runtime_input.is_some() {
+            return Err("User prompt surfaces do not support continuation history.".to_string());
+        }
+
         return Ok(json!({
             "contents": [{
                 "role": "user",
@@ -297,37 +380,32 @@ fn build_google_payload(request: &ExecutePromptRequest) -> Result<Value, String>
         }));
     }
 
+    let mut contents = validated_history(request)?
+        .iter()
+        .map(google_content)
+        .collect::<Vec<_>>();
+    contents.push(google_content(&RuntimeMessage {
+        role: "user".to_string(),
+        text: runtime_input(request)?.to_string(),
+    }));
+
     Ok(json!({
         "system_instruction": {
             "parts": [{ "text": request.prompt }]
         },
-        "contents": [{
-            "role": "user",
-            "parts": [{ "text": runtime_input(request)? }]
-        }]
+        "contents": contents
     }))
 }
 
 
 fn build_anthropic_count_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
-    if request.instruction_role == "user" {
-        return Ok(json!({
-            "model": request.model,
-            "messages": [{
-                "role": "user",
-                "content": request.prompt
-            }]
-        }));
+    let mut payload = build_anthropic_payload(request)?;
+
+    if let Some(object) = payload.as_object_mut() {
+        object.remove("max_tokens");
     }
 
-    Ok(json!({
-        "model": request.model,
-        "system": request.prompt,
-        "messages": [{
-            "role": "user",
-            "content": runtime_input(request)?
-        }]
-    }))
+    Ok(payload)
 }
 
 fn build_google_count_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
@@ -867,6 +945,7 @@ mod tests {
             instruction_role: role.to_string(),
             prompt: "Compiled prompt".to_string(),
             runtime_input: runtime_input.map(str::to_string),
+            history: Vec::new(),
         }
     }
 
