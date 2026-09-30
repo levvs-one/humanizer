@@ -26,7 +26,9 @@ import {
   savePromptDrafts
 } from "./prompt-draft-storage"
 import {
+  countProviderTokens,
   executeProviderPrompt,
+  supportsExactTokenPreflight,
   type ExecutePromptResponse
 } from "./runtime"
 
@@ -123,6 +125,12 @@ export default function PromptStudioView({
   const [runInputs, setRunInputs] = useState<Record<string, string>>({})
   const [executing, setExecuting] = useState(false)
   const [executionError, setExecutionError] = useState<string | null>(null)
+  const [countingTokens, setCountingTokens] = useState(false)
+  const [tokenCountError, setTokenCountError] = useState<string | null>(null)
+  const [tokenCount, setTokenCount] = useState<{
+    signature: string
+    inputTokens: number
+  } | null>(null)
   const [execution, setExecution] = useState<{
     draftId: string
     modelId: string
@@ -199,6 +207,19 @@ export default function PromptStudioView({
     execution.surfaceId === activeSurface.id
       ? execution.response
       : null
+  const tokenCountSignature = [
+    activeDraft.id,
+    activeModel.id,
+    activeSurface.id,
+    result.text,
+    requiresRuntimeInput ? runtimeInput : ""
+  ].join("\u0000")
+  const currentTokenCount =
+    tokenCount?.signature === tokenCountSignature ? tokenCount.inputTokens : null
+  const canPreflightTokens =
+    isApiTarget &&
+    supportsExactTokenPreflight(activeModel.provider) &&
+    (!requiresRuntimeInput || runtimeInput.trim().length > 0)
   const hasBlockingDiagnostic = result.diagnostics.some(
     (diagnostic) => diagnostic.severity === "error"
   )
@@ -215,6 +236,7 @@ export default function PromptStudioView({
     )
     setCopied(false)
     setExecutionError(null)
+    setTokenCountError(null)
   }
 
   function patchDraft(
@@ -349,6 +371,37 @@ export default function PromptStudioView({
     window.setTimeout(() => setCopied(false), 1200)
   }
 
+  async function countTokens() {
+    if (!canPreflightTokens) return
+
+    setCountingTokens(true)
+    setTokenCountError(null)
+
+    try {
+      const response = await countProviderTokens({
+        provider: activeModel.provider,
+        model: activeModel.id,
+        instructionRole: activeSurface.instructionRole,
+        prompt: result.text,
+        ...(requiresRuntimeInput ? { runtimeInput } : {})
+      })
+
+      setTokenCount({
+        signature: tokenCountSignature,
+        inputTokens: response.inputTokens
+      })
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : String(reason)
+      setTokenCountError(
+        message.includes("No stored API key")
+          ? "Configure this provider in Settings before counting tokens."
+          : message
+      )
+    } finally {
+      setCountingTokens(false)
+    }
+  }
+
   async function runPrompt() {
     if (!canExecute) return
 
@@ -370,6 +423,13 @@ export default function PromptStudioView({
         surfaceId: activeSurface.id,
         response
       })
+
+      if (response.inputTokens !== null) {
+        setTokenCount({
+          signature: tokenCountSignature,
+          inputTokens: response.inputTokens
+        })
+      }
     } catch (reason) {
       const message =
         reason instanceof Error ? reason.message : String(reason)
@@ -708,8 +768,34 @@ export default function PromptStudioView({
                 ? result.characterCount.toLocaleString() + " characters"
                 : result.characterCount.toLocaleString() + " / " + result.characterLimit.toLocaleString() + " characters"}
             </span>
-            {result.compactedBlocks.length ? <span>{result.compactedBlocks.length} compacted</span> : null}
+
+            <div className="count-row-actions">
+              {currentTokenCount !== null ? (
+                <span>{currentTokenCount.toLocaleString()} input tokens</span>
+              ) : null}
+              {result.compactedBlocks.length ? (
+                <span>{result.compactedBlocks.length} compacted</span>
+              ) : null}
+              {canPreflightTokens ? (
+                <button
+                  className="text-button"
+                  type="button"
+                  disabled={countingTokens}
+                  onClick={() => void countTokens()}
+                >
+                  {countingTokens
+                    ? "Counting"
+                    : currentTokenCount === null
+                      ? "Count tokens"
+                      : "Recount"}
+                </button>
+              ) : null}
+            </div>
           </div>
+
+          {tokenCountError ? (
+            <p className="token-count-error">{tokenCountError}</p>
+          ) : null}
 
           <pre className="prompt-output">{result.text}</pre>
 
