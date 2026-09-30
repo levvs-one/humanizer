@@ -3,6 +3,7 @@ import {
   createProfileDocument,
   duplicateProfileDocument,
   parseProfileDocument,
+  updateProfileDocument,
   type BehaviorProfile,
   type ProfileDocument
 } from "@humanizer/core"
@@ -14,6 +15,7 @@ interface ProfilesViewProps {
   activeProfileId: string
   onUse: (profileId: string) => void
   onCreate: (profile: ProfileDocument) => void
+  onUpdate: (profile: ProfileDocument) => void
   onDelete: (profileId: string) => void
 }
 
@@ -40,6 +42,7 @@ export default function ProfilesView({
   activeProfileId,
   onUse,
   onCreate,
+  onUpdate,
   onDelete
 }: ProfilesViewProps) {
   const [error, setError] = useState<string | null>(null)
@@ -131,10 +134,29 @@ export default function ProfilesView({
             <article className={active ? "profile-row active-profile" : "profile-row"} key={profile.id}>
               <div className="profile-row-main">
                 <div className="profile-row-title">
-                  <h2>{profile.name}</h2>
+                  <input
+                    className="profile-name-input"
+                    aria-label={"Profile name for " + profile.name}
+                    value={profile.name}
+                    onChange={(event) =>
+                      onUpdate(updateProfileDocument(profile, { name: event.target.value }))
+                    }
+                  />
                   {active ? <span>Active</span> : null}
                 </div>
-                <p>{profile.description || "No description"}</p>
+                <input
+                  className="profile-description-input"
+                  aria-label={"Profile description for " + profile.name}
+                  value={profile.description}
+                  placeholder="Add a short description"
+                  onChange={(event) =>
+                    onUpdate(
+                      updateProfileDocument(profile, {
+                        description: event.target.value
+                      })
+                    )
+                  }
+                />
                 <dl className="profile-row-meta">
                   <div>
                     <dt>Role</dt>
