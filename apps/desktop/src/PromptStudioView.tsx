@@ -610,6 +610,17 @@ export default function PromptStudioView({
     }
   }
 
+  function clearConversation() {
+    setConversationSessions((current) => {
+      const next = { ...current }
+      delete next[conversationKey]
+      return next
+    })
+    setExecution(null)
+    setExecutionError(null)
+    setTokenCount(null)
+  }
+
   const status =
     result.status === "fits"
       ? "Fits target"
@@ -1060,9 +1071,29 @@ export default function PromptStudioView({
                 >
                   {executing
                     ? "Cancel run"
-                    : "Run with " + providerLabels[activeModel.provider]}
+                    : supportsConversation && conversationHistory.length > 0
+                      ? "Continue with " + providerLabels[activeModel.provider]
+                      : "Run with " + providerLabels[activeModel.provider]}
                 </button>
-                <span>Responses are not saved.</span>
+
+                {supportsConversation && conversationHistory.length > 0 ? (
+                  <button
+                    className="plain-button"
+                    type="button"
+                    disabled={executing}
+                    onClick={clearConversation}
+                  >
+                    Clear conversation
+                  </button>
+                ) : null}
+
+                <span>
+                  {supportsConversation
+                    ? conversationHistory.length > 0
+                      ? conversationHistory.length / 2 + " turns in this local session."
+                      : "Conversation history stays local to this Studio session."
+                    : "Responses are not saved."}
+                </span>
               </div>
             </section>
           ) : null}
@@ -1127,7 +1158,25 @@ export default function PromptStudioView({
 
           <PromptInspector diagnostics={result.diagnostics} />
 
-          {currentExecution ? (
+          {supportsConversation && conversationHistory.length > 0 ? (
+            <section className="runtime-response conversation-response" aria-label="Conversation">
+              <div className="runtime-response-heading">
+                <h3>Conversation</h3>
+                <span>{conversationHistory.length / 2} turns</span>
+              </div>
+
+              <div className="conversation-thread">
+                {conversationHistory.map((message, index) => (
+                  <div className={"conversation-message " + message.role} key={index}>
+                    <strong>{message.role === "user" ? "You" : activeModel.label}</strong>
+                    <p>{message.text}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {currentExecution && (!supportsConversation || executing) ? (
             <section className="runtime-response" aria-label="Provider response">
               <div className="runtime-response-heading">
                 <h3>Response</h3>
