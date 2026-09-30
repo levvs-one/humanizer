@@ -8,6 +8,8 @@ export {
 } from "./draft"
 export type { CreatePromptDraftInput, PromptDraftDocument } from "./draft"
 export { compilePrompt } from "./compiler"
+export { inspectPrompt } from "./inspector"
+export type { PromptInspectionContext } from "./inspector"
 export {
   MODELS,
   getModel,
@@ -37,6 +39,8 @@ export type {
   ModelDefinition,
   PlanId,
   PromptBrief,
+  PromptDiagnostic,
+  PromptDiagnosticSeverity,
   PromptOptimization,
   PromptPurpose,
   PromptSurface,
