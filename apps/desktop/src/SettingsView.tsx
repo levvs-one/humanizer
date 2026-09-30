@@ -1,3 +1,4 @@
+import { findStaleTargetSources, SURFACES } from "@humanizer/core"
 import { useEffect, useMemo, useState } from "react"
 import {
   deleteProviderApiKey,
@@ -13,6 +14,10 @@ interface ProviderDefinition {
   name: string
   description: string
   keyHint: string
+}
+
+function currentUtcDay(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 const PROVIDERS: ProviderDefinition[] = [
@@ -169,12 +174,18 @@ function ProviderCredentialRow({
 
 export default function SettingsView() {
   const [statuses, setStatuses] = useState<CredentialStatus[]>([])
+  const [utcDay, setUtcDay] = useState(currentUtcDay)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const configured = useMemo(
     () => new Map(statuses.map((status) => [status.provider, status.configured])),
     [statuses]
+  )
+
+  const staleTargets = useMemo(
+    () => findStaleTargetSources(SURFACES, utcDay, 90),
+    [utcDay]
   )
 
   async function refresh() {
@@ -194,6 +205,43 @@ export default function SettingsView() {
 
   useEffect(() => {
     void refresh()
+  }, [])
+
+  useEffect(() => {
+    function refreshUtcDay() {
+      setUtcDay(currentUtcDay())
+    }
+
+    function scheduleRollover(): ReturnType<typeof window.setTimeout> {
+      const now = new Date()
+      const nextUtcMidnight = Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate() + 1
+      )
+
+      return window.setTimeout(() => {
+        refreshUtcDay()
+        rolloverTimer = scheduleRollover()
+      }, Math.max(1_000, nextUtcMidnight - now.getTime() + 100))
+    }
+
+    let rolloverTimer = scheduleRollover()
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        refreshUtcDay()
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    window.addEventListener("focus", refreshUtcDay)
+
+    return () => {
+      window.clearTimeout(rolloverTimer)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      window.removeEventListener("focus", refreshUtcDay)
+    }
   }, [])
 
   return (
@@ -228,6 +276,57 @@ export default function SettingsView() {
               />
             ))}
           </div>
+        </section>
+
+        <section className="settings-section">
+          <div className="settings-section-heading">
+            <h2>Registry health</h2>
+            <p>
+              Target metadata is source-backed. Entries older than 90 days are flagged for
+              re-verification instead of being silently treated as current forever.
+            </p>
+          </div>
+
+          {staleTargets.length === 0 ? (
+            <p className="prompt-inspector-empty">
+              All {SURFACES.length} target surfaces were verified within the last 90 days.
+            </p>
+          ) : (
+            <div className="provider-list">
+              {staleTargets.map((entry) => {
+                const surface = SURFACES.find((candidate) => candidate.id === entry.targetId)
+                if (!surface) return null
+
+                return (
+                  <section className="provider-row" key={entry.targetId}>
+                    <div className="provider-copy">
+                      <div className="provider-heading">
+                        <h2>{surface.product} {surface.label}</h2>
+                        <span className="credential-state">
+                          {entry.ageDays} days old
+                        </span>
+                      </div>
+                      <p>
+                        Verified {entry.verifiedAt}. Re-check the official source before changing
+                        limits or capabilities.
+                      </p>
+                    </div>
+
+                    <div className="provider-controls">
+                      <a
+                        className="secondary-button"
+                        href={surface.source.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Official source
+                      </a>
+                    </div>
+                  </section>
+                )
+              })}
+            </div>
+          )}
         </section>
 
         <section className="settings-section">
