@@ -1,6 +1,6 @@
 import type { BehaviorProfile, PromptBrief } from "./types"
 
-export const PROMPT_IR_VERSION = 2 as const
+export const PROMPT_IR_VERSION = 3 as const
 
 export type PromptIRBlockId =
   | "role"
