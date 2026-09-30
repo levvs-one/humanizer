@@ -29,6 +29,11 @@ const profile: BehaviorProfile = {
     preferPrimarySources: true,
     allowCommunitySources: true
   },
+  tools: {
+    usage: "when-useful",
+    confirmExternalActions: true,
+    preferReadOnly: true
+  },
   writing: {
     avoidAISlop: true,
     avoidUnnecessaryHeadings: true,
