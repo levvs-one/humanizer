@@ -58,8 +58,8 @@ function createDefaultDraft(profileId: string): PromptDraftDocument {
   return createPromptDraftDocument({
     profileId,
     target: {
-      modelId: activeModel.id,
-      surfaceId: activeSurface.id,
+      modelId: model.id,
+      surfaceId: surface.id,
       ...(surface.characterLimit.kind === "by-plan" ? { plan: "plus" as PlanId } : {})
     }
   })
