@@ -9,6 +9,8 @@ Human intent
     ↓
 Behavior profile
     ↓
+Scoped behavior overrides
+    ↓
 Task brief
     ↓
 Prompt IR
@@ -32,6 +34,21 @@ A behavior profile describes role, communication, research, uncertainty handling
 
 Profiles support live inheritance. A derived profile stores its base profile id plus the set of fields that still inherit. Editing an inherited field turns only that field into a local override. Changes to every other inherited field continue to flow from the base. Detaching materializes the current resolved behavior into an independent profile.
 
+### Scoped behavior overrides
+
+Prompt drafts can apply local behavior overrides without modifying or duplicating the referenced profile. Overrides are stored by stable behavior field path and resolved on top of the profile before Prompt IR is built.
+
+This creates an explicit layering model:
+
+```text
+resolved profile
+  + project/task overrides
+  + narrower model/runtime overrides later
+  = effective behavior
+```
+
+Later layers win only for fields they explicitly set. Unspecified behavior continues to come from the profile.
+
 ### Target surface
 
 A target surface is more specific than a model. It identifies the product and the exact place where instructions will be used.
@@ -47,7 +64,7 @@ Each surface owns its verified limits, supported capabilities, source URL, and v
 
 ### Prompt IR
 
-Prompt IR is the stable intermediate representation between user intent and provider-specific text. Prompt IR v2 combines the active behavior profile with an optional task brief containing the task, context, expected output, and hard constraints.
+Prompt IR is the stable intermediate representation between user intent and provider-specific text. Prompt IR is built from the effective behavior after inheritance and scoped overrides are resolved, plus an optional task brief containing the task, context, expected output, and hard constraints.
 
 The renderer can change ordering and syntax by target. User prompts put the task first. Persistent, system, and developer instructions put behavior first. Provider formatting can also differ without changing the profile schema.
 
@@ -72,7 +89,7 @@ Remote services are reserved for signed registry updates, optional sync, release
 The monorepo is intentionally small at the start. Split packages only when boundaries become real:
 
 - conversation runtime
-- project and model override scopes
+- additional project and model override scope surfaces
 - evaluation harness
 - MCP server
 - research policy engine

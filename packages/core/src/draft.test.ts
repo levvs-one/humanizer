@@ -18,6 +18,10 @@ describe("prompt draft documents", () => {
         modelId: "gpt-5.6-sol",
         optimization: "maximum-fidelity"
       },
+      behaviorOverrides: {
+        "communication.verbosity": "high",
+        "research.rigor": 100
+      },
       brief: {
         purpose: "research",
         goal: "Review the service.",
@@ -31,6 +35,7 @@ describe("prompt draft documents", () => {
     expect(parsePromptDraftDocument(serializePromptDraftDocument(draft))).toEqual(draft)
     expect(draft.target.optimization).toBe("maximum-fidelity")
     expect(draft.brief.purpose).toBe("research")
+    expect(draft.behaviorOverrides["communication.verbosity"]).toBe("high")
   })
 
   it("updates content without changing creation time", () => {
@@ -71,6 +76,46 @@ describe("prompt draft documents", () => {
     expect(copy.id).not.toBe(draft.id)
     expect(copy.name).toBe("Draft Copy")
     expect(copy.brief).toEqual(draft.brief)
+    expect(copy.behaviorOverrides).toEqual(draft.behaviorOverrides)
+  })
+
+  it("migrates schema v1 drafts with no behavior overrides", () => {
+    const legacy = JSON.stringify({
+      schemaVersion: 1,
+      id: "legacy",
+      name: "Legacy",
+      profileId: "principal-engineer",
+      target: { surfaceId: "chatgpt-user-prompt" },
+      brief: {
+        goal: "",
+        context: "",
+        output: "",
+        constraints: ""
+      },
+      createdAt: "2026-09-30T14:00:00.000Z",
+      updatedAt: "2026-09-30T14:00:00.000Z"
+    })
+
+    const migrated = parsePromptDraftDocument(legacy)
+
+    expect(migrated.schemaVersion).toBe(2)
+    expect(migrated.behaviorOverrides).toEqual({})
+  })
+
+  it("rejects invalid behavior overrides", () => {
+    const draft = createPromptDraftDocument({
+      id: "draft",
+      profileId: "principal-engineer",
+      target: { surfaceId: "chatgpt-user-prompt" }
+    })
+    const serialized = JSON.stringify({
+      ...draft,
+      behaviorOverrides: { "communication.verbosity": "maximum" }
+    })
+
+    expect(() => parsePromptDraftDocument(serialized)).toThrow(
+      "invalid or incomplete"
+    )
   })
 
   it("rejects malformed imports", () => {

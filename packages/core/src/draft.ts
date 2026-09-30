@@ -1,3 +1,4 @@
+import { isBehaviorOverrideSet, type BehaviorOverrideSet } from "./overrides"
 import type {
   PlanId,
   PromptBrief,
@@ -6,13 +7,14 @@ import type {
   PromptTarget
 } from "./types"
 
-export const PROMPT_DRAFT_SCHEMA_VERSION = 1 as const
+export const PROMPT_DRAFT_SCHEMA_VERSION = 2 as const
 
 export interface PromptDraftDocument {
   schemaVersion: typeof PROMPT_DRAFT_SCHEMA_VERSION
   id: string
   name: string
   profileId: string
+  behaviorOverrides: BehaviorOverrideSet
   target: PromptTarget
   brief: PromptBrief
   createdAt: string
@@ -23,6 +25,7 @@ export interface CreatePromptDraftInput {
   id?: string
   name?: string
   profileId: string
+  behaviorOverrides?: BehaviorOverrideSet
   target: PromptTarget
   brief?: PromptBrief
   now?: string
@@ -112,6 +115,18 @@ function isPromptTarget(value: unknown): value is PromptTarget {
   return true
 }
 
+function hasDocumentFields(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.profileId === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string" &&
+    isPromptTarget(value.target) &&
+    isPromptBrief(value.brief)
+  )
+}
+
 export function createPromptDraftDocument(
   input: CreatePromptDraftInput
 ): PromptDraftDocument {
@@ -122,6 +137,7 @@ export function createPromptDraftDocument(
     id: input.id ?? createId(),
     name: input.name?.trim() || "Untitled Prompt",
     profileId: input.profileId,
+    behaviorOverrides: structuredClone(input.behaviorOverrides ?? {}),
     target: structuredClone(input.target),
     brief: structuredClone(input.brief ?? EMPTY_BRIEF),
     createdAt: now,
@@ -132,7 +148,10 @@ export function createPromptDraftDocument(
 export function updatePromptDraftDocument(
   source: PromptDraftDocument,
   changes: Partial<
-    Pick<PromptDraftDocument, "name" | "profileId" | "target" | "brief">
+    Pick<
+      PromptDraftDocument,
+      "name" | "profileId" | "behaviorOverrides" | "target" | "brief"
+    >
   >,
   now = new Date().toISOString()
 ): PromptDraftDocument {
@@ -141,6 +160,9 @@ export function updatePromptDraftDocument(
     ...changes,
     name: changes.name === undefined ? source.name : changes.name,
     profileId: changes.profileId ?? source.profileId,
+    behaviorOverrides: changes.behaviorOverrides
+      ? structuredClone(changes.behaviorOverrides)
+      : source.behaviorOverrides,
     target: changes.target ? structuredClone(changes.target) : source.target,
     brief: changes.brief ? structuredClone(changes.brief) : source.brief,
     updatedAt: now
@@ -154,6 +176,7 @@ export function duplicatePromptDraftDocument(
   return createPromptDraftDocument({
     name: options.name?.trim() || source.name + " Copy",
     profileId: source.profileId,
+    behaviorOverrides: source.behaviorOverrides,
     target: source.target,
     brief: source.brief,
     ...(options.now ? { now: options.now } : {})
@@ -175,30 +198,44 @@ export function parsePromptDraftDocument(
     throw new Error("Prompt draft file must contain an object.")
   }
 
-  if (value.schemaVersion !== PROMPT_DRAFT_SCHEMA_VERSION) {
-    throw new Error("Unsupported prompt draft schema version.")
-  }
-
-  if (
-    typeof value.id !== "string" ||
-    typeof value.name !== "string" ||
-    typeof value.profileId !== "string" ||
-    typeof value.createdAt !== "string" ||
-    typeof value.updatedAt !== "string" ||
-    !isPromptTarget(value.target) ||
-    !isPromptBrief(value.brief)
-  ) {
+  if (!hasDocumentFields(value)) {
     throw new Error("Prompt draft file is invalid or incomplete.")
   }
 
-  return {
-    schemaVersion: PROMPT_DRAFT_SCHEMA_VERSION,
-    id: value.id,
-    name: value.name,
-    profileId: value.profileId,
-    target: structuredClone(value.target),
-    brief: structuredClone(value.brief),
-    createdAt: value.createdAt,
-    updatedAt: value.updatedAt
+  if (
+    value.schemaVersion === PROMPT_DRAFT_SCHEMA_VERSION &&
+    isBehaviorOverrideSet(value.behaviorOverrides)
+  ) {
+    return {
+      schemaVersion: PROMPT_DRAFT_SCHEMA_VERSION,
+      id: value.id as string,
+      name: value.name as string,
+      profileId: value.profileId as string,
+      behaviorOverrides: structuredClone(value.behaviorOverrides),
+      target: structuredClone(value.target as PromptTarget),
+      brief: structuredClone(value.brief as PromptBrief),
+      createdAt: value.createdAt as string,
+      updatedAt: value.updatedAt as string
+    }
   }
+
+  if (value.schemaVersion === 1) {
+    return {
+      schemaVersion: PROMPT_DRAFT_SCHEMA_VERSION,
+      id: value.id as string,
+      name: value.name as string,
+      profileId: value.profileId as string,
+      behaviorOverrides: {},
+      target: structuredClone(value.target as PromptTarget),
+      brief: structuredClone(value.brief as PromptBrief),
+      createdAt: value.createdAt as string,
+      updatedAt: value.updatedAt as string
+    }
+  }
+
+  if (![1, PROMPT_DRAFT_SCHEMA_VERSION].includes(Number(value.schemaVersion))) {
+    throw new Error("Unsupported prompt draft schema version.")
+  }
+
+  throw new Error("Prompt draft file is invalid or incomplete.")
 }

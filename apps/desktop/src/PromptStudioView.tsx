@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import {
+  applyBehaviorOverrides,
   buildTargetExport,
   compilePrompt,
   createPromptDraftDocument,
@@ -8,6 +9,8 @@ import {
   parsePromptDraftDocument,
   SURFACES,
   updatePromptDraftDocument,
+  type BehaviorFieldPath,
+  type BehaviorOverrideValue,
   type PlanId,
   type ProfileDocument,
   type PromptBrief,
@@ -192,13 +195,18 @@ export default function PromptStudioView({
   }
 
   const activeProfile = profile
+  const effectiveProfile = applyBehaviorOverrides(
+    activeProfile.profile,
+    activeDraft.behaviorOverrides
+  )
+  const overrideCount = Object.keys(activeDraft.behaviorOverrides).length
   const activeSurface = surface
   const needsPlan = activeSurface.characterLimit.kind === "by-plan"
   const plan = activeDraft.target.plan ?? "plus"
   const optimization = activeDraft.target.optimization ?? "balanced"
 
   const result = compilePrompt({
-    profile: activeProfile.profile,
+    profile: effectiveProfile,
     brief: activeDraft.brief,
     target: {
       surfaceId: activeSurface.id,
@@ -252,10 +260,33 @@ export default function PromptStudioView({
 
   function patchDraft(
     changes: Partial<
-      Pick<PromptDraftDocument, "name" | "profileId" | "target" | "brief">
+      Pick<
+        PromptDraftDocument,
+        "name" | "profileId" | "behaviorOverrides" | "target" | "brief"
+      >
     >
   ) {
     replaceDraft(updatePromptDraftDocument(activeDraft, changes))
+  }
+
+  function setBehaviorOverride(
+    path: BehaviorFieldPath,
+    value: BehaviorOverrideValue | undefined
+  ) {
+    const next = { ...activeDraft.behaviorOverrides }
+
+    if (value === undefined) {
+      delete next[path]
+    } else {
+      next[path] = value
+    }
+
+    patchDraft({ behaviorOverrides: next })
+  }
+
+  function numericBehaviorOverride(path: BehaviorFieldPath): string {
+    const value = activeDraft.behaviorOverrides[path]
+    return typeof value === "number" ? String(value) : ""
   }
 
   function chooseModel(nextId: string) {
@@ -359,6 +390,7 @@ export default function PromptStudioView({
         ? createPromptDraftDocument({
             name: imported.name,
             profileId,
+            behaviorOverrides: imported.behaviorOverrides,
             target: imported.target,
             brief: imported.brief
           })
@@ -707,7 +739,7 @@ export default function PromptStudioView({
                 onChange={(event) => choosePurpose(event.target.value)}
               >
                 <option value="">
-                  Profile default ({activeProfile.profile.purpose})
+                  Profile default ({effectiveProfile.purpose})
                 </option>
                 <option value="general">General</option>
                 <option value="engineering">Engineering</option>
@@ -779,10 +811,168 @@ export default function PromptStudioView({
             </div>
 
             <dl className="target-facts">
-              <div><dt>Naturalness</dt><dd>{activeProfile.profile.communication.naturalness}</dd></div>
-              <div><dt>Directness</dt><dd>{activeProfile.profile.communication.directness}</dd></div>
-              <div><dt>Research</dt><dd>{activeProfile.profile.research.rigor}</dd></div>
+              <div><dt>Naturalness</dt><dd>{effectiveProfile.communication.naturalness}</dd></div>
+              <div><dt>Directness</dt><dd>{effectiveProfile.communication.directness}</dd></div>
+              <div><dt>Research</dt><dd>{effectiveProfile.research.rigor}</dd></div>
             </dl>
+
+            <details className="advanced-behavior">
+              <summary>
+                Task behavior overrides{overrideCount > 0 ? " (" + overrideCount + ")" : ""}
+              </summary>
+
+              <div className="advanced-behavior-content">
+                <div className="field">
+                  <div className="field-heading">
+                    <label>Role</label>
+                    <span>Blank inherits the profile</span>
+                  </div>
+                  <input
+                    value={
+                      typeof activeDraft.behaviorOverrides.role === "string"
+                        ? activeDraft.behaviorOverrides.role
+                        : ""
+                    }
+                    placeholder={activeProfile.profile.role}
+                    onChange={(event) =>
+                      setBehaviorOverride(
+                        "role",
+                        event.target.value === "" ? undefined : event.target.value
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="field">
+                  <div className="field-heading">
+                    <label>Objective</label>
+                    <span>Blank inherits the profile</span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={
+                      typeof activeDraft.behaviorOverrides.objective === "string"
+                        ? activeDraft.behaviorOverrides.objective
+                        : ""
+                    }
+                    placeholder={activeProfile.profile.objective}
+                    onChange={(event) =>
+                      setBehaviorOverride(
+                        "objective",
+                        event.target.value === "" ? undefined : event.target.value
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="two-column-fields">
+                  <div className="field">
+                    <div className="field-heading"><label>Verbosity</label></div>
+                    <select
+                      value={
+                        typeof activeDraft.behaviorOverrides["communication.verbosity"] === "string"
+                          ? String(activeDraft.behaviorOverrides["communication.verbosity"])
+                          : ""
+                      }
+                      onChange={(event) =>
+                        setBehaviorOverride(
+                          "communication.verbosity",
+                          event.target.value === "" ? undefined : event.target.value
+                        )
+                      }
+                    >
+                      <option value="">Profile default ({activeProfile.profile.communication.verbosity})</option>
+                      <option value="low">Compact</option>
+                      <option value="medium">Balanced</option>
+                      <option value="high">Detailed</option>
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <div className="field-heading"><label>Directness</label><span>0–100</span></div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={numericBehaviorOverride("communication.directness")}
+                      placeholder={String(activeProfile.profile.communication.directness)}
+                      onChange={(event) =>
+                        setBehaviorOverride(
+                          "communication.directness",
+                          event.target.value === "" ? undefined : Number(event.target.value)
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="two-column-fields">
+                  <div className="field">
+                    <div className="field-heading"><label>Initiative</label><span>0–100</span></div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={numericBehaviorOverride("reasoning.initiative")}
+                      placeholder={String(activeProfile.profile.reasoning.initiative)}
+                      onChange={(event) =>
+                        setBehaviorOverride(
+                          "reasoning.initiative",
+                          event.target.value === "" ? undefined : Number(event.target.value)
+                        )
+                      }
+                    />
+                  </div>
+
+                  <div className="field">
+                    <div className="field-heading"><label>Verification</label><span>0–100</span></div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={numericBehaviorOverride("reasoning.verification")}
+                      placeholder={String(activeProfile.profile.reasoning.verification)}
+                      onChange={(event) =>
+                        setBehaviorOverride(
+                          "reasoning.verification",
+                          event.target.value === "" ? undefined : Number(event.target.value)
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="field">
+                  <div className="field-heading"><label>Research rigor</label><span>0–100</span></div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={numericBehaviorOverride("research.rigor")}
+                    placeholder={String(activeProfile.profile.research.rigor)}
+                    onChange={(event) =>
+                      setBehaviorOverride(
+                        "research.rigor",
+                        event.target.value === "" ? undefined : Number(event.target.value)
+                      )
+                    }
+                  />
+                </div>
+
+                {overrideCount > 0 ? (
+                  <div className="runtime-actions">
+                    <button
+                      className="plain-button"
+                      type="button"
+                      onClick={() => patchDraft({ behaviorOverrides: {} })}
+                    >
+                      Reset task overrides
+                    </button>
+                    <span>The base profile is unchanged.</span>
+                  </div>
+                ) : null}
+              </div>
+            </details>
           </section>
 
           {isApiTarget ? (
