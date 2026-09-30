@@ -47,9 +47,11 @@ Each surface owns its verified limits, supported capabilities, source URL, and v
 
 ### Prompt IR
 
-Prompt IR is the stable intermediate representation between user intent and provider-specific text. Prompt IR v2 combines the active behavior profile with an optional task brief containing the task, context, expected output, and hard constraints.
+Prompt IR is the stable intermediate representation between user intent and provider-specific text. Prompt IR v3 combines the active behavior profile, purpose strategy, and optional task brief containing the task, context, expected output, and hard constraints.
 
-The renderer can change ordering and syntax by target. User prompts put the task first. Persistent, system, and developer instructions put behavior first. Provider formatting can also differ without changing the profile schema.
+Prompt IR does not decide the final syntax or section order. Provider dialect adapters do that after the IR is built.
+
+OpenAI targets use readable Markdown sections. Anthropic targets use descriptive XML tags. Gemini targets use a consistent XML structure and place task-specific instructions late in standalone user prompts so context can precede the final request. These choices can evolve without changing the behavior profile schema.
 
 ### Constraint optimizer
 
