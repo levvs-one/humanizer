@@ -10,7 +10,7 @@ The project is deliberately not a text spinner and not an AI-detector bypass too
 
 Humanizer has two primary surfaces.
 
-**Humanize** builds reusable behavior profiles: role, communication style, research policy, initiative, uncertainty handling, tool use, and writing constraints.
+**Humanize** builds reusable behavior profiles: role, communication style, research policy, initiative, uncertainty handling, tool use, and writing constraints. Profiles can derive from another profile and override only the fields that need to differ.
 
 **Prompt Studio** compiles those profiles for a specific provider and target surface. A ChatGPT custom instruction, an API developer message, a Claude system prompt, and a Gemini system instruction are treated as different targets with different capabilities and limits.
 
@@ -62,6 +62,7 @@ docs/
   adding-a-target.md
   export-formats.md
   provider-runtime.md
+  profiles.md
 ```
 
 ## Development
