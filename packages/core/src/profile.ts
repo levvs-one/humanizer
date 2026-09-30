@@ -171,11 +171,11 @@ function isLegacyBehaviorProfileV4(value: unknown): value is LegacyBehaviorProfi
 }
 
 function isBehaviorProfileV5(value: unknown): value is BehaviorProfile {
-  return (
-    isRecord(value) &&
-    isLegacyBehaviorProfileV4(value) &&
-    hasTools(value.tools)
-  )
+  if (!isRecord(value) || !isLegacyBehaviorProfileV4(value)) {
+    return false
+  }
+
+  return hasTools((value as Record<string, unknown>).tools)
 }
 
 function isLegacyBehaviorProfileV1(
