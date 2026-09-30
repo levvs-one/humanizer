@@ -56,6 +56,19 @@ export default function ProjectScopePanel({
     return typeof value === "number" ? String(value) : ""
   }
 
+  function scoreOverride(value: string): number | undefined {
+    if (value === "") {
+      return undefined
+    }
+
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed)) {
+      return undefined
+    }
+
+    return Math.max(0, Math.min(100, parsed))
+  }
+
   return (
     <section className="panel compact-summary-panel">
       <div className="panel-heading">
@@ -218,9 +231,7 @@ export default function ProjectScopePanel({
                     onChange={(event) =>
                       setOverride(
                         "communication.directness",
-                        event.target.value === ""
-                          ? undefined
-                          : Number(event.target.value)
+                        scoreOverride(event.target.value)
                       )
                     }
                   />
@@ -242,9 +253,7 @@ export default function ProjectScopePanel({
                     onChange={(event) =>
                       setOverride(
                         "reasoning.verification",
-                        event.target.value === ""
-                          ? undefined
-                          : Number(event.target.value)
+                        scoreOverride(event.target.value)
                       )
                     }
                   />
@@ -264,9 +273,7 @@ export default function ProjectScopePanel({
                     onChange={(event) =>
                       setOverride(
                         "research.rigor",
-                        event.target.value === ""
-                          ? undefined
-                          : Number(event.target.value)
+                        scoreOverride(event.target.value)
                       )
                     }
                   />
