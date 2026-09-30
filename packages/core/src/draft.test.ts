@@ -15,7 +15,8 @@ describe("prompt draft documents", () => {
       profileId: "principal-engineer",
       target: {
         surfaceId: "openai-api-user",
-        modelId: "gpt-5.6-sol"
+        modelId: "gpt-5.6-sol",
+        optimization: "maximum-fidelity"
       },
       brief: {
         goal: "Review the service.",
@@ -27,6 +28,7 @@ describe("prompt draft documents", () => {
     })
 
     expect(parsePromptDraftDocument(serializePromptDraftDocument(draft))).toEqual(draft)
+    expect(draft.target.optimization).toBe("maximum-fidelity")
   })
 
   it("updates content without changing creation time", () => {
