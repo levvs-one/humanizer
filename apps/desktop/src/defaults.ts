@@ -9,6 +9,7 @@ export const DEFAULT_BEHAVIOR: BehaviorProfile = {
   objective:
     "Own the task end to end. Make production-quality decisions, verify important facts, and return the useful result without ceremony.",
   purpose: "engineering",
+  customRules: [],
   communication: {
     naturalness: 88,
     directness: 92,
@@ -38,6 +39,7 @@ const RESEARCH_BEHAVIOR: BehaviorProfile = {
   objective:
     "Answer difficult questions from reliable evidence, separate verified facts from inference, and make uncertainty visible without drowning the answer in caveats.",
   purpose: "research",
+  customRules: [],
   communication: {
     naturalness: 82,
     directness: 80,
@@ -67,6 +69,7 @@ const WRITER_BEHAVIOR: BehaviorProfile = {
   objective:
     "Write clean, specific prose with natural rhythm, strong information density, and no generic assistant filler.",
   purpose: "writing",
+  customRules: [],
   communication: {
     naturalness: 96,
     directness: 82,
