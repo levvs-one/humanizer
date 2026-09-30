@@ -8,44 +8,72 @@ import {
 const DRAFTS_KEY = "humanizer.prompt-drafts.v1"
 const ACTIVE_DRAFT_KEY = "humanizer.active-prompt-draft.v1"
 
-export function loadPromptDrafts(): PromptDraftDocument[] {
-  const serialized = window.localStorage.getItem(DRAFTS_KEY)
+export interface LoadedPromptDrafts {
+  drafts: PromptDraftDocument[]
+  storageAvailable: boolean
+}
+
+export function loadPromptDrafts(): LoadedPromptDrafts {
+  let serialized: string | null
+
+  try {
+    serialized = window.localStorage.getItem(DRAFTS_KEY)
+  } catch {
+    return { drafts: [], storageAvailable: false }
+  }
 
   if (!serialized) {
-    return []
+    return { drafts: [], storageAvailable: true }
   }
 
   try {
     const values: unknown = JSON.parse(serialized)
 
     if (!Array.isArray(values)) {
-      return []
+      return { drafts: [], storageAvailable: true }
     }
 
-    return values.flatMap((value) => {
-      try {
-        return [parsePromptDraftDocument(JSON.stringify(value))]
-      } catch {
-        return []
-      }
-    })
+    return {
+      drafts: values.flatMap((value) => {
+        try {
+          return [parsePromptDraftDocument(JSON.stringify(value))]
+        } catch {
+          return []
+        }
+      }),
+      storageAvailable: true
+    }
   } catch {
-    return []
+    return { drafts: [], storageAvailable: true }
   }
 }
 
 export function savePromptDrafts(
   drafts: readonly PromptDraftDocument[]
-): void {
-  window.localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts))
+): boolean {
+  try {
+    window.localStorage.setItem(DRAFTS_KEY, JSON.stringify(drafts))
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function loadActivePromptDraftId(): string | null {
-  return window.localStorage.getItem(ACTIVE_DRAFT_KEY)
+  try {
+    return window.localStorage.getItem(ACTIVE_DRAFT_KEY)
+  } catch {
+    return null
+  }
 }
 
-export function saveActivePromptDraftId(draftId: string): void {
-  window.localStorage.setItem(ACTIVE_DRAFT_KEY, draftId)
+export function saveActivePromptDraftId(draftId: string): boolean {
+  try {
+    window.localStorage.setItem(ACTIVE_DRAFT_KEY, draftId)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function safeFilename(name: string): string {
