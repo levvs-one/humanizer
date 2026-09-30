@@ -10,9 +10,11 @@ The project is deliberately not a text spinner and not an AI-detector bypass too
 
 Humanizer has two primary surfaces.
 
-**Humanize** builds reusable behavior profiles: role, communication style, research policy, initiative, uncertainty handling, tool use, and writing constraints. Profiles can derive from another profile and override only the fields that need to differ.
+**Humanize** builds reusable behavior profiles: role, communication style, research policy, initiative, uncertainty handling, tool-use policy, reusable hard rules, and writing constraints. Profiles can derive from another profile with live field-level inheritance.
 
-**Prompt Studio** compiles those profiles for a specific provider and target surface. A ChatGPT custom instruction, an API developer message, a Claude system prompt, and a Gemini system instruction are treated as different targets with different capabilities and limits.
+**Prompt Studio** compiles those profiles for a specific provider and target surface. Project scopes and task-level overrides specialize a profile without cloning it. A ChatGPT custom instruction, an API developer message, a Claude system prompt, and a Gemini system instruction are treated as different targets with different capabilities and limits.
+
+For supported API targets, Prompt Studio can execute the compiled instructions directly, stream the response, continue a local multi-turn conversation, perform exact token preflight where the provider supports it, and persist bounded conversation history locally.
 
 ## Principles
 
@@ -33,6 +35,10 @@ Human intent
     ↓
 Behavior profile
     ↓
+Project scope
+    ↓
+Task override
+    ↓
 Prompt IR
     ↓
 Provider adapter
@@ -44,7 +50,7 @@ Validator
 Target prompt
 ```
 
-The first implementation is a TypeScript monorepo with a Tauri desktop shell, React interface, a provider/surface registry, and a deterministic prompt compiler.
+The implementation is a TypeScript monorepo with a Tauri desktop shell, React interface, a source-backed provider/surface registry, deterministic prompt compiler, native provider runtime, and local versioned documents for profiles, projects, drafts, and conversations.
 
 ## Repository
 
@@ -86,11 +92,17 @@ pnpm test
 pnpm build
 ```
 
+GitHub Actions runs these checks for every pull request. Native Rust/Tauri checks run separately when `apps/desktop/src-tauri/**` changes.
+
 ## Status
 
-Humanizer is in alpha. The core desktop workflow is operational: profiles and prompt drafts persist locally, Prompt Studio compiles against source-backed model and surface metadata, inspects the result, exports target-aware artifacts, and can execute supported API targets through the native credential boundary.
+Humanizer is in alpha, but the core desktop workflow is operational end to end.
 
-Test and Integrations remain intentionally disabled in the interface until their underlying runtime workflows are real rather than placeholder screens.
+Profiles, project scopes, prompt drafts, and bounded conversation sessions persist locally. Behavior supports live inheritance, reusable hard rules, structured tool policy, project-level overrides, and narrower task overrides. Prompt Studio compiles against source-backed model and target metadata, reports stale registry entries, inspects and optimizes the result, exports target-aware artifacts, performs supported token preflight, and executes OpenAI, Anthropic, and Gemini API targets through the native credential boundary with streaming and cancellation.
+
+Instruction-style API targets support local multi-turn continuation. Provider keys remain in the operating-system credential store and are never returned to the React interface.
+
+Test and Integrations remain intentionally disabled until their underlying workflows are real rather than placeholder screens.
 
 ## Contributing
 
