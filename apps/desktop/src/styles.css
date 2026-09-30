@@ -733,3 +733,142 @@ select:focus {
     flex-wrap: wrap;
   }
 }
+
+
+.settings-layout {
+  max-width: 820px;
+  display: grid;
+  gap: 32px;
+}
+
+.settings-section {
+  display: grid;
+  gap: 16px;
+}
+
+.settings-section-heading {
+  max-width: 620px;
+}
+
+.settings-section-heading h2 {
+  margin: 0 0 5px;
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 620;
+  letter-spacing: -0.012em;
+}
+
+.settings-section-heading p {
+  margin: 0;
+  color: #6e6e73;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.provider-list {
+  overflow: hidden;
+  border: 1px solid #dedee3;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.provider-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 32px;
+  padding: 22px 24px;
+  border-top: 1px solid #ececef;
+}
+
+.provider-row:first-child {
+  border-top: 0;
+}
+
+.provider-copy {
+  min-width: 0;
+}
+
+.provider-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.provider-heading h2 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 620;
+}
+
+.provider-copy > p {
+  margin: 5px 0 0;
+  color: #77777c;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.credential-state {
+  color: #8a8a8f;
+  font-size: 11px;
+  font-weight: 560;
+}
+
+.credential-state.configured {
+  color: #237a3b;
+}
+
+.provider-controls {
+  min-width: 0;
+}
+
+.provider-controls input[type="password"] {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid #cfcfd4;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1d1d1f;
+  font-size: 13px;
+}
+
+.provider-controls input[type="password"]:focus {
+  border-color: #8f8f94;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+  outline: none;
+}
+
+.provider-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.provider-actions .primary-button,
+.provider-actions .secondary-button {
+  min-height: 36px;
+  padding-right: 13px;
+  padding-left: 13px;
+  font-size: 12px;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.provider-message {
+  margin: 8px 0 0;
+  color: #6e6e73;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+@media (max-width: 820px) {
+  .provider-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
