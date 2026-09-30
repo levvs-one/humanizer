@@ -7,6 +7,7 @@ export const MODELS: readonly ModelDefinition[] = [
     label: "GPT-5.6 Sol",
     contextWindowTokens: 1_050_000,
     maxOutputTokens: 128_000,
+    tokenCounting: "unavailable",
     source: {
       label: "OpenAI model documentation",
       url: "https://platform.openai.com/docs/models",
@@ -19,6 +20,7 @@ export const MODELS: readonly ModelDefinition[] = [
     label: "GPT-5.6 Terra",
     contextWindowTokens: 1_050_000,
     maxOutputTokens: 128_000,
+    tokenCounting: "unavailable",
     source: {
       label: "OpenAI model documentation",
       url: "https://platform.openai.com/docs/models",
@@ -31,9 +33,36 @@ export const MODELS: readonly ModelDefinition[] = [
     label: "GPT-5.6 Luna",
     contextWindowTokens: 1_050_000,
     maxOutputTokens: 128_000,
+    tokenCounting: "unavailable",
     source: {
       label: "OpenAI model documentation",
       url: "https://platform.openai.com/docs/models",
+      verifiedAt: "2026-09-30"
+    }
+  },
+  {
+    id: "claude-opus-5-5",
+    provider: "anthropic",
+    label: "Claude Opus 5.5",
+    contextWindowTokens: 1_000_000,
+    maxOutputTokens: 128_000,
+    tokenCounting: "provider-api",
+    source: {
+      label: "Claude Opus 5.5 documentation",
+      url: "https://platform.claude.com/docs/en/models/opus-5-5/overview",
+      verifiedAt: "2026-09-30"
+    }
+  },
+  {
+    id: "claude-sonnet-5-5",
+    provider: "anthropic",
+    label: "Claude Sonnet 5.5",
+    contextWindowTokens: 1_000_000,
+    maxOutputTokens: 128_000,
+    tokenCounting: "provider-api",
+    source: {
+      label: "Claude Sonnet 5.5 documentation",
+      url: "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
       verifiedAt: "2026-09-30"
     }
   },
@@ -43,6 +72,7 @@ export const MODELS: readonly ModelDefinition[] = [
     label: "Claude Opus 5",
     contextWindowTokens: 1_000_000,
     maxOutputTokens: 128_000,
+    tokenCounting: "provider-api",
     source: {
       label: "Claude model documentation",
       url: "https://docs.anthropic.com/en/docs/about-claude/models/migrating-to-claude-4",
@@ -55,6 +85,7 @@ export const MODELS: readonly ModelDefinition[] = [
     label: "Claude Sonnet 5",
     contextWindowTokens: 1_000_000,
     maxOutputTokens: 128_000,
+    tokenCounting: "provider-api",
     source: {
       label: "Claude model documentation",
       url: "https://docs.anthropic.com/en/docs/about-claude/models/migrating-to-claude-4",
@@ -65,8 +96,9 @@ export const MODELS: readonly ModelDefinition[] = [
     id: "gemini-3.8-flash",
     provider: "google",
     label: "Gemini 3.8 Flash",
-    contextWindowTokens: null,
-    maxOutputTokens: null,
+    contextWindowTokens: 1_000_000,
+    maxOutputTokens: 64_000,
+    tokenCounting: "provider-api",
     source: {
       label: "Gemini model documentation",
       url: "https://ai.google.dev/gemini-api/docs/models",
@@ -79,6 +111,7 @@ export const MODELS: readonly ModelDefinition[] = [
     label: "Gemini 3.5 Flash",
     contextWindowTokens: 1_048_576,
     maxOutputTokens: 65_536,
+    tokenCounting: "provider-api",
     source: {
       label: "Gemini 3.5 Flash documentation",
       url: "https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash",
