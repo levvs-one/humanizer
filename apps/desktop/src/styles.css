@@ -1272,6 +1272,39 @@ select:focus {
   color: #4d4d52;
 }
 
+.conversation-thread {
+  display: grid;
+  gap: 10px;
+}
+
+.conversation-message {
+  padding: 12px 14px;
+  border: 1px solid #e5e5e8;
+  border-radius: 11px;
+  background: #ffffff;
+}
+
+.conversation-message.user {
+  background: #f7f7f8;
+}
+
+.conversation-message strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #6f6f74;
+  font-size: 10.5px;
+  font-weight: 620;
+}
+
+.conversation-message p {
+  margin: 0;
+  color: #252527;
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 
 .count-row-actions {
   display: flex;
