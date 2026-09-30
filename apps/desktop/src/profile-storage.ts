@@ -7,42 +7,70 @@ import {
 const STORAGE_KEY = "humanizer.profiles.v1"
 const ACTIVE_PROFILE_KEY = "humanizer.active-profile.v1"
 
-export function loadProfiles(): ProfileDocument[] {
-  const serialized = window.localStorage.getItem(STORAGE_KEY)
+export interface LoadedProfiles {
+  profiles: ProfileDocument[]
+  storageAvailable: boolean
+}
+
+export function loadProfiles(): LoadedProfiles {
+  let serialized: string | null
+
+  try {
+    serialized = window.localStorage.getItem(STORAGE_KEY)
+  } catch {
+    return { profiles: [], storageAvailable: false }
+  }
 
   if (!serialized) {
-    return []
+    return { profiles: [], storageAvailable: true }
   }
 
   try {
     const values: unknown = JSON.parse(serialized)
 
     if (!Array.isArray(values)) {
-      return []
+      return { profiles: [], storageAvailable: true }
     }
 
-    return values.flatMap((value) => {
-      try {
-        return [parseProfileDocument(JSON.stringify(value))]
-      } catch {
-        return []
-      }
-    })
+    return {
+      profiles: values.flatMap((value) => {
+        try {
+          return [parseProfileDocument(JSON.stringify(value))]
+        } catch {
+          return []
+        }
+      }),
+      storageAvailable: true
+    }
   } catch {
-    return []
+    return { profiles: [], storageAvailable: true }
   }
 }
 
-export function saveProfiles(profiles: readonly ProfileDocument[]): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles))
+export function saveProfiles(profiles: readonly ProfileDocument[]): boolean {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profiles))
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function loadActiveProfileId(): string | null {
-  return window.localStorage.getItem(ACTIVE_PROFILE_KEY)
+  try {
+    return window.localStorage.getItem(ACTIVE_PROFILE_KEY)
+  } catch {
+    return null
+  }
 }
 
-export function saveActiveProfileId(profileId: string): void {
-  window.localStorage.setItem(ACTIVE_PROFILE_KEY, profileId)
+export function saveActiveProfileId(profileId: string): boolean {
+  try {
+    window.localStorage.setItem(ACTIVE_PROFILE_KEY, profileId)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function downloadProfile(profile: ProfileDocument): void {
