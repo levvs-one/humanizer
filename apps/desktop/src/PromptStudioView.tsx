@@ -58,8 +58,8 @@ function createDefaultDraft(profileId: string): PromptDraftDocument {
   return createPromptDraftDocument({
     profileId,
     target: {
-      modelId: model.id,
-      surfaceId: surface.id,
+      modelId: activeModel.id,
+      surfaceId: activeSurface.id,
       ...(surface.characterLimit.kind === "by-plan" ? { plan: "plus" as PlanId } : {})
     }
   })
@@ -100,23 +100,25 @@ export default function PromptStudioView({
     return null
   }
 
+  const activeDraft = draft
   const firstModel = MODELS[0]
-  const model = MODELS.find((entry) => entry.id === draft.target.modelId) ?? firstModel
+  const model = MODELS.find((entry) => entry.id === activeDraft.target.modelId) ?? firstModel
 
   if (!model) {
     throw new Error("Model registry is empty.")
   }
 
-  const surfaces = SURFACES.filter((entry) => entry.provider === model.provider)
+  const activeModel = model
+  const surfaces = SURFACES.filter((entry) => entry.provider === activeModel.provider)
   const surface =
-    surfaces.find((entry) => entry.id === draft.target.surfaceId) ?? surfaces[0]
+    surfaces.find((entry) => entry.id === activeDraft.target.surfaceId) ?? surfaces[0]
 
   if (!surface) {
     throw new Error("No prompt surface for selected model.")
   }
 
   const profile =
-    profiles.find((entry) => entry.id === draft.profileId) ??
+    profiles.find((entry) => entry.id === activeDraft.profileId) ??
     profiles.find((entry) => entry.id === defaultProfileId) ??
     profiles[0]
 
@@ -124,15 +126,17 @@ export default function PromptStudioView({
     throw new Error("At least one behavior profile is required.")
   }
 
-  const needsPlan = surface.characterLimit.kind === "by-plan"
-  const plan = draft.target.plan ?? "plus"
+  const activeProfile = profile
+  const activeSurface = surface
+  const needsPlan = activeSurface.characterLimit.kind === "by-plan"
+  const plan = activeDraft.target.plan ?? "plus"
 
   const result = compilePrompt({
-    profile: profile.profile,
-    brief: draft.brief,
+    profile: activeProfile.profile,
+    brief: activeDraft.brief,
     target: {
-      surfaceId: surface.id,
-      modelId: model.id,
+      surfaceId: activeSurface.id,
+      modelId: activeModel.id,
       ...(needsPlan ? { plan } : {})
     }
   })
@@ -149,7 +153,7 @@ export default function PromptStudioView({
       Pick<PromptDraftDocument, "name" | "profileId" | "target" | "brief">
     >
   ) {
-    replaceDraft(updatePromptDraftDocument(draft, changes))
+    replaceDraft(updatePromptDraftDocument(activeDraft, changes))
   }
 
   function chooseModel(nextId: string) {
@@ -167,7 +171,7 @@ export default function PromptStudioView({
         modelId: nextModel.id,
         surfaceId: nextSurface.id,
         ...(nextSurface.characterLimit.kind === "by-plan"
-          ? { plan: draft.target.plan ?? "plus" }
+          ? { plan: activeDraft.target.plan ?? "plus" }
           : {})
       }
     })
@@ -179,10 +183,10 @@ export default function PromptStudioView({
 
     patchDraft({
       target: {
-        modelId: model.id,
+        modelId: activeModel.id,
         surfaceId: nextSurface.id,
         ...(nextSurface.characterLimit.kind === "by-plan"
-          ? { plan: draft.target.plan ?? "plus" }
+          ? { plan: activeDraft.target.plan ?? "plus" }
           : {})
       }
     })
@@ -191,21 +195,21 @@ export default function PromptStudioView({
   function updateBrief(field: keyof PromptBrief, value: string) {
     patchDraft({
       brief: {
-        ...draft.brief,
+        ...activeDraft.brief,
         [field]: value
       }
     })
   }
 
   function newDraft() {
-    const next = createDefaultDraft(profile.id)
+    const next = createDefaultDraft(activeProfile.id)
     setDrafts((current) => [...current, next])
     setActiveDraftId(next.id)
     setImportError(null)
   }
 
   function duplicateDraft() {
-    const next = duplicatePromptDraftDocument(draft)
+    const next = duplicatePromptDraftDocument(activeDraft)
     setDrafts((current) => [...current, next])
     setActiveDraftId(next.id)
     setImportError(null)
@@ -214,7 +218,7 @@ export default function PromptStudioView({
   function deleteDraft() {
     if (drafts.length <= 1) return
 
-    const next = drafts.filter((entry) => entry.id !== draft.id)
+    const next = drafts.filter((entry) => entry.id !== activeDraft.id)
     setDrafts(next)
     setActiveDraftId(next[0]?.id ?? "")
     setImportError(null)
@@ -280,7 +284,7 @@ export default function PromptStudioView({
           <label htmlFor="prompt-draft">Draft</label>
           <select
             id="prompt-draft"
-            value={draft.id}
+            value={activeDraft.id}
             onChange={(event) => setActiveDraftId(event.target.value)}
           >
             {drafts.map((entry) => (
@@ -294,7 +298,7 @@ export default function PromptStudioView({
         <input
           className="draft-name-input"
           aria-label="Draft name"
-          value={draft.name}
+          value={activeDraft.name}
           onChange={(event) => patchDraft({ name: event.target.value })}
         />
 
@@ -309,7 +313,7 @@ export default function PromptStudioView({
           <button className="plain-button" type="button" onClick={newDraft}>New</button>
           <button className="plain-button" type="button" onClick={duplicateDraft}>Duplicate</button>
           <button className="plain-button" type="button" onClick={() => fileInput.current?.click()}>Import</button>
-          <button className="plain-button" type="button" onClick={() => downloadPromptDraft(draft)}>Export</button>
+          <button className="plain-button" type="button" onClick={() => downloadPromptDraft(activeDraft)}>Export</button>
           <button
             className="plain-button danger"
             type="button"
@@ -334,7 +338,7 @@ export default function PromptStudioView({
             <div className="two-column-fields">
               <div className="field">
                 <div className="field-heading"><label>Model</label></div>
-                <select value={model.id} onChange={(event) => chooseModel(event.target.value)}>
+                <select value={activeModel.id} onChange={(event) => chooseModel(event.target.value)}>
                   {(Object.keys(providerLabels) as ProviderId[]).map((provider) => (
                     <optgroup key={provider} label={providerLabels[provider]}>
                       {MODELS.filter((entry) => entry.provider === provider).map((entry) => (
@@ -347,7 +351,7 @@ export default function PromptStudioView({
 
               <div className="field">
                 <div className="field-heading"><label>Prompt type</label></div>
-                <select value={surface.id} onChange={(event) => chooseSurface(event.target.value)}>
+                <select value={activeSurface.id} onChange={(event) => chooseSurface(event.target.value)}>
                   {surfaces.map((entry) => (
                     <option key={entry.id} value={entry.id}>
                       {entry.product} {entry.label}
@@ -382,9 +386,9 @@ export default function PromptStudioView({
             ) : null}
 
             <dl className="target-facts">
-              <div><dt>Context</dt><dd>{formatTokens(model.contextWindowTokens)}</dd></div>
-              <div><dt>Max output</dt><dd>{formatTokens(model.maxOutputTokens)}</dd></div>
-              <div><dt>Role</dt><dd>{surface.instructionRole}</dd></div>
+              <div><dt>Context</dt><dd>{formatTokens(activeModel.contextWindowTokens)}</dd></div>
+              <div><dt>Max output</dt><dd>{formatTokens(activeModel.maxOutputTokens)}</dd></div>
+              <div><dt>Role</dt><dd>{activeSurface.instructionRole}</dd></div>
             </dl>
           </section>
 
@@ -398,7 +402,7 @@ export default function PromptStudioView({
               <div className="field-heading"><label>What should this prompt do?</label></div>
               <textarea
                 rows={5}
-                value={draft.brief.goal}
+                value={activeDraft.brief.goal}
                 placeholder="Describe the task in plain language."
                 onChange={(event) => updateBrief("goal", event.target.value)}
               />
@@ -408,7 +412,7 @@ export default function PromptStudioView({
               <div className="field-heading"><label>Context</label><span>Optional</span></div>
               <textarea
                 rows={3}
-                value={draft.brief.context}
+                value={activeDraft.brief.context}
                 placeholder="Information the model should know before it starts."
                 onChange={(event) => updateBrief("context", event.target.value)}
               />
@@ -419,7 +423,7 @@ export default function PromptStudioView({
                 <div className="field-heading"><label>Expected output</label><span>Optional</span></div>
                 <textarea
                   rows={3}
-                  value={draft.brief.output}
+                  value={activeDraft.brief.output}
                   placeholder="What a good result should contain."
                   onChange={(event) => updateBrief("output", event.target.value)}
                 />
@@ -429,7 +433,7 @@ export default function PromptStudioView({
                 <div className="field-heading"><label>Constraints</label><span>Optional</span></div>
                 <textarea
                   rows={3}
-                  value={draft.brief.constraints}
+                  value={activeDraft.brief.constraints}
                   placeholder="Hard requirements or exclusions."
                   onChange={(event) => updateBrief("constraints", event.target.value)}
                 />
@@ -446,7 +450,7 @@ export default function PromptStudioView({
             <div className="field">
               <select
                 aria-label="Behavior profile"
-                value={profile.id}
+                value={activeProfile.id}
                 onChange={(event) => patchDraft({ profileId: event.target.value })}
               >
                 {profiles.map((entry) => (
@@ -456,9 +460,9 @@ export default function PromptStudioView({
             </div>
 
             <dl className="target-facts">
-              <div><dt>Naturalness</dt><dd>{profile.profile.communication.naturalness}</dd></div>
-              <div><dt>Directness</dt><dd>{profile.profile.communication.directness}</dd></div>
-              <div><dt>Research</dt><dd>{profile.profile.research.rigor}</dd></div>
+              <div><dt>Naturalness</dt><dd>{activeProfile.profile.communication.naturalness}</dd></div>
+              <div><dt>Directness</dt><dd>{activeProfile.profile.communication.directness}</dd></div>
+              <div><dt>Research</dt><dd>{activeProfile.profile.research.rigor}</dd></div>
             </dl>
           </section>
         </div>
@@ -473,7 +477,7 @@ export default function PromptStudioView({
               <button
                 className="secondary-button"
                 type="button"
-                onClick={() => downloadCompiledPrompt(draft.name, result.text)}
+                onClick={() => downloadCompiledPrompt(activeDraft.name, result.text)}
               >
                 Export
               </button>
@@ -501,8 +505,8 @@ export default function PromptStudioView({
           ) : null}
 
           <div className="source-note studio-source-note">
-            <a href={model.source.url} target="_blank" rel="noreferrer">Model source</a>
-            <a href={surface.source.url} target="_blank" rel="noreferrer">Target source</a>
+            <a href={activeModel.source.url} target="_blank" rel="noreferrer">Model source</a>
+            <a href={activeSurface.source.url} target="_blank" rel="noreferrer">Target source</a>
           </div>
         </aside>
       </div>
