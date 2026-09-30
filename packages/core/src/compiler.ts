@@ -44,18 +44,29 @@ function orderBlocks(blocks: PromptIRBlock[], surface: PromptSurface): PromptIRB
   )
 }
 
-function renderBlock(block: PromptIRBlock, variant: "full" | "compact"): string {
-  return block.heading + "\n" + (variant === "compact" ? block.compact : block.full)
+function renderBlock(
+  block: PromptIRBlock,
+  variant: "full" | "compact",
+  surface: PromptSurface
+): string {
+  const content = variant === "compact" ? block.compact : block.full
+
+  if (surface.provider === "anthropic") {
+    return "<" + block.id + ">\n" + content + "\n</" + block.id + ">"
+  }
+
+  return block.heading + "\n" + content
 }
 
 function render(
   blocks: PromptIRBlock[],
   variants: Map<string, "full" | "compact">,
-  omitted: Set<string>
+  omitted: Set<string>,
+  surface: PromptSurface
 ): string {
   return blocks
     .filter((block) => !omitted.has(block.id))
-    .map((block) => renderBlock(block, variants.get(block.id) ?? "full"))
+    .map((block) => renderBlock(block, variants.get(block.id) ?? "full", surface))
     .join("\n\n")
     .trim()
 }
@@ -73,7 +84,7 @@ export function compilePrompt(request: CompileRequest): CompileResult {
   const compactedBlocks: string[] = []
   const omittedBlocks: string[] = []
 
-  let text = render(blocks, variants, omitted)
+  let text = render(blocks, variants, omitted, surface)
 
   if (limit !== null && text.length > limit) {
     const byAscendingPriority = [...blocks].sort((a, b) => a.priority - b.priority)
@@ -89,7 +100,7 @@ export function compilePrompt(request: CompileRequest): CompileResult {
 
       variants.set(block.id, "compact")
       compactedBlocks.push(block.id)
-      text = render(blocks, variants, omitted)
+      text = render(blocks, variants, omitted, surface)
     }
 
     for (const block of byAscendingPriority) {
@@ -103,7 +114,7 @@ export function compilePrompt(request: CompileRequest): CompileResult {
 
       omitted.add(block.id)
       omittedBlocks.push(block.id)
-      text = render(blocks, variants, omitted)
+      text = render(blocks, variants, omitted, surface)
     }
   }
 
