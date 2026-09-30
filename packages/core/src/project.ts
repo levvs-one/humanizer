@@ -145,15 +145,16 @@ export function parseProjectDocument(serialized: string): ProjectDocument {
     throw new Error("Project file must contain an object.")
   }
 
-  const hasBaseFields =
-    typeof value.id === "string" &&
-    typeof value.name === "string" &&
-    typeof value.description === "string" &&
-    typeof value.createdAt === "string" &&
-    typeof value.updatedAt === "string" &&
-    isBehaviorOverrideSet(value.behaviorOverrides)
+  const behaviorOverrides = value.behaviorOverrides
 
-  if (!hasBaseFields) {
+  if (
+    typeof value.id !== "string" ||
+    typeof value.name !== "string" ||
+    typeof value.description !== "string" ||
+    typeof value.createdAt !== "string" ||
+    typeof value.updatedAt !== "string" ||
+    !isBehaviorOverrideSet(behaviorOverrides)
+  ) {
     throw new Error("Project file is invalid or incomplete.")
   }
 
@@ -166,7 +167,7 @@ export function parseProjectDocument(serialized: string): ProjectDocument {
       id: value.id as string,
       name: value.name as string,
       description: value.description as string,
-      behaviorOverrides: structuredClone(value.behaviorOverrides),
+      behaviorOverrides: structuredClone(behaviorOverrides),
       modelOverrides: cloneModelOverrides(value.modelOverrides),
       createdAt: value.createdAt as string,
       updatedAt: value.updatedAt as string
@@ -179,7 +180,7 @@ export function parseProjectDocument(serialized: string): ProjectDocument {
       id: value.id as string,
       name: value.name as string,
       description: value.description as string,
-      behaviorOverrides: structuredClone(value.behaviorOverrides),
+      behaviorOverrides: structuredClone(behaviorOverrides),
       modelOverrides: {},
       createdAt: value.createdAt as string,
       updatedAt: value.updatedAt as string
