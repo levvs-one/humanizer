@@ -934,7 +934,7 @@ mod tests {
         anthropic_stream_event, build_anthropic_count_payload, build_anthropic_payload,
         build_google_count_payload, build_google_payload, build_openai_payload,
         google_stream_event, openai_stream_event, parse_anthropic, parse_google, parse_openai,
-        ExecutePromptRequest, SseDecoder, StreamUsage,
+        ExecutePromptRequest, RuntimeMessage, SseDecoder, StreamUsage,
     };
     use serde_json::json;
 
@@ -965,7 +965,54 @@ mod tests {
         let payload =
             build_openai_payload(&request("openai", "developer", Some("Review this."))).unwrap();
         assert_eq!(payload["instructions"], "Compiled prompt");
-        assert_eq!(payload["input"], "Review this.");
+        assert_eq!(payload["input"][0]["role"], "user");
+        assert_eq!(payload["input"][0]["content"][0]["text"], "Review this.");
+    }
+
+    #[test]
+    fn provider_payloads_preserve_conversation_history() {
+        let history = vec![
+            RuntimeMessage {
+                role: "user".to_string(),
+                text: "First question".to_string(),
+            },
+            RuntimeMessage {
+                role: "assistant".to_string(),
+                text: "First answer".to_string(),
+            },
+        ];
+
+        let mut openai = request("openai", "developer", Some("Follow up"));
+        openai.history = history.clone();
+        let openai_payload = build_openai_payload(&openai).unwrap();
+        assert_eq!(openai_payload["input"][0]["role"], "user");
+        assert_eq!(openai_payload["input"][1]["role"], "assistant");
+        assert_eq!(openai_payload["input"][2]["content"][0]["text"], "Follow up");
+
+        let mut anthropic = request("anthropic", "system", Some("Follow up"));
+        anthropic.history = history.clone();
+        let anthropic_payload = build_anthropic_payload(&anthropic).unwrap();
+        assert_eq!(anthropic_payload["messages"][0]["role"], "user");
+        assert_eq!(anthropic_payload["messages"][1]["role"], "assistant");
+        assert_eq!(anthropic_payload["messages"][2]["content"], "Follow up");
+
+        let mut google = request("google", "system", Some("Follow up"));
+        google.history = history;
+        let google_payload = build_google_payload(&google).unwrap();
+        assert_eq!(google_payload["contents"][0]["role"], "user");
+        assert_eq!(google_payload["contents"][1]["role"], "model");
+        assert_eq!(google_payload["contents"][2]["parts"][0]["text"], "Follow up");
+    }
+
+    #[test]
+    fn user_prompt_surfaces_reject_continuation_history() {
+        let mut user = request("openai", "user", None);
+        user.history.push(RuntimeMessage {
+            role: "assistant".to_string(),
+            text: "Old answer".to_string(),
+        });
+
+        assert!(build_openai_payload(&user).is_err());
     }
 
     #[test]
