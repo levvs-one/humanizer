@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react"
 import {
+  detachProfileDocument,
+  resolveProfileDocument,
+  updateProfileBehavior,
   updateProfileDocument,
   type BehaviorProfile,
   type ProfileDocument,
@@ -105,11 +108,13 @@ function ToggleRow({
 function HumanizeView({
   profile,
   setProfile,
-  openStudio
+  openStudio,
+  inheritanceLabel
 }: {
   profile: BehaviorProfile
   setProfile: (profile: BehaviorProfile) => void
   openStudio: () => void
+  inheritanceLabel?: string | undefined
 }) {
   return (
     <main className="page">
@@ -119,6 +124,11 @@ function HumanizeView({
           Define how the model should work. The profile stays structured so it can be compiled
           cleanly for different products later.
         </p>
+        {inheritanceLabel ? (
+          <p className="inheritance-note">
+            Based on {inheritanceLabel}. Editing a value creates a local override.
+          </p>
+        ) : null}
       </header>
 
       <div className="profile-layout">
@@ -382,7 +392,16 @@ export default function App() {
   const activeDocument =
     profiles.find((document) => document.id === activeProfileId) ?? profiles[0]
   const activeId = activeDocument?.id ?? ""
-  const profile = activeDocument?.profile ?? DEFAULT_BEHAVIOR
+  const profile = activeDocument
+    ? resolveProfileDocument(activeDocument, profiles)
+    : DEFAULT_BEHAVIOR
+  const resolvedProfiles = profiles.map((document) => ({
+    ...document,
+    profile: resolveProfileDocument(document, profiles)
+  }))
+  const baseDocument = activeDocument?.baseProfileId
+    ? profiles.find((document) => document.id === activeDocument.baseProfileId)
+    : undefined
 
   useEffect(() => {
     saveProfiles(profiles)
@@ -400,11 +419,17 @@ export default function App() {
     }
 
     setProfiles((current) =>
-      current.map((document) =>
-        document.id === activeDocument.id
-          ? updateProfileDocument(document, { profile: nextProfile })
-          : document
-      )
+      current.map((document) => {
+        if (document.id !== activeDocument.id) {
+          return document
+        }
+
+        return updateProfileBehavior(
+          document,
+          resolveProfileDocument(document, current),
+          nextProfile
+        )
+      })
     )
   }
 
@@ -426,7 +451,12 @@ export default function App() {
         return current
       }
 
-      const next = current.filter((document) => document.id !== profileId)
+      const detachedChildren = current.map((document) =>
+        document.baseProfileId === profileId
+          ? detachProfileDocument(document, current)
+          : document
+      )
+      const next = detachedChildren.filter((document) => document.id !== profileId)
 
       if (profileId === activeId && next[0]) {
         setActiveProfileId(next[0].id)
@@ -480,10 +510,13 @@ export default function App() {
             profile={profile}
             setProfile={setProfile}
             openStudio={() => setView("studio")}
+            inheritanceLabel={baseDocument?.name}
           />
         ) : null}
 
-        {view === "studio" ? <PromptStudioView profiles={profiles} defaultProfileId={activeId} /> : null}
+        {view === "studio" ? (
+          <PromptStudioView profiles={resolvedProfiles} defaultProfileId={activeId} />
+        ) : null}
 
         {view === "profiles" ? (
           <ProfilesView

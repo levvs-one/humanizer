@@ -19,13 +19,25 @@ export {
 } from "./models"
 export {
   PROFILE_SCHEMA_VERSION,
+  BEHAVIOR_FIELD_PATHS,
+  createDerivedProfileDocument,
   createProfileDocument,
+  detachProfileDocument,
   duplicateProfileDocument,
+  materializeProfileDocument,
   parseProfileDocument,
+  profileDependsOn,
+  resetProfileInheritance,
+  resolveProfileDocument,
   serializeProfileDocument,
+  updateProfileBehavior,
   updateProfileDocument
 } from "./profile"
-export type { CreateProfileInput, ProfileDocument } from "./profile"
+export type {
+  BehaviorFieldPath,
+  CreateProfileInput,
+  ProfileDocument
+} from "./profile"
 export {
   PROMPT_IR_VERSION,
   buildPromptIR

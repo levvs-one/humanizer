@@ -6,6 +6,7 @@ The roadmap is ordered by dependency, not by visual appeal.
 
 - structured behavior profiles
 - local profile persistence
+- live profile inheritance with local field overrides
 - source-backed target registry
 - source-backed model registry
 - deterministic Prompt IR compiler
@@ -23,7 +24,7 @@ The roadmap is ordered by dependency, not by visual appeal.
 
 ## Next
 
-- profile inheritance and project or model overrides
+- project and model-specific profile overrides
 - model-specific compiler refinements
 - streaming and cancellation for provider execution
 - reusable conversation runtime
