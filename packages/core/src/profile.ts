@@ -143,9 +143,11 @@ function isLegacyBehaviorProfileV3(value: unknown): value is LegacyBehaviorProfi
 function isBehaviorProfileV4(value: unknown): value is BehaviorProfile {
   if (!isRecord(value) || !isLegacyBehaviorProfileV3(value)) return false
 
+  const customRules = (value as Record<string, unknown>).customRules
+
   return (
-    Array.isArray(value.customRules) &&
-    value.customRules.every((rule) => typeof rule === "string")
+    Array.isArray(customRules) &&
+    customRules.every((rule: unknown) => typeof rule === "string")
   )
 }
 
