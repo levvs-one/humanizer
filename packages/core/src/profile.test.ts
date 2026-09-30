@@ -38,6 +38,11 @@ const profile: BehaviorProfile = {
     preferPrimarySources: true,
     allowCommunitySources: true
   },
+  tools: {
+    usage: "when-useful",
+    confirmExternalActions: true,
+    preferReadOnly: true
+  },
   writing: {
     avoidAISlop: true,
     avoidUnnecessaryHeadings: true,
@@ -46,7 +51,7 @@ const profile: BehaviorProfile = {
 }
 
 describe("profile documents", () => {
-  it("creates a stable schema v4 root document", () => {
+  it("creates a stable schema v5 root document", () => {
     const document = createProfileDocument({
       id: "research",
       name: "Research",
@@ -54,7 +59,7 @@ describe("profile documents", () => {
       now: "2026-09-30T12:00:00.000Z"
     })
 
-    expect(document.schemaVersion).toBe(4)
+    expect(document.schemaVersion).toBe(5)
     expect(document.id).toBe("research")
     expect(document.baseProfileId).toBeNull()
     expect(document.inheritedFields).toEqual([])
@@ -269,8 +274,36 @@ describe("profile documents", () => {
     expect(updated.updatedAt).toBe("2026-09-30T13:00:00.000Z")
   })
 
-  it("migrates schema v3 inheritance into v4", () => {
-    const { customRules: _customRules, ...legacyProfile } = profile
+  it("migrates schema v4 inheritance into v5", () => {
+    const { tools: _tools, ...legacyProfile } = profile
+    const legacy = JSON.stringify({
+      schemaVersion: 4,
+      id: "legacy-v4-child",
+      name: "Legacy v4 child",
+      description: "",
+      profile: legacyProfile,
+      baseProfileId: "base",
+      inheritedFields: ["role", "communication.directness", "customRules"],
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-02T00:00:00.000Z"
+    })
+
+    const migrated = parseProfileDocument(legacy)
+
+    expect(migrated.schemaVersion).toBe(5)
+    expect(migrated.baseProfileId).toBe("base")
+    expect(migrated.inheritedFields).toContain("tools.usage")
+    expect(migrated.inheritedFields).toContain("tools.confirmExternalActions")
+    expect(migrated.inheritedFields).toContain("tools.preferReadOnly")
+    expect(migrated.profile.tools).toEqual({
+      usage: "when-useful",
+      confirmExternalActions: true,
+      preferReadOnly: true
+    })
+  })
+
+  it("migrates schema v3 inheritance into v5", () => {
+    const { customRules: _customRules, tools: _tools, ...legacyProfile } = profile
     const legacy = JSON.stringify({
       schemaVersion: 3,
       id: "legacy-child",
@@ -285,26 +318,28 @@ describe("profile documents", () => {
 
     const migrated = parseProfileDocument(legacy)
 
-    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.schemaVersion).toBe(5)
     expect(migrated.baseProfileId).toBe("base")
     expect(migrated.inheritedFields).toContain("customRules")
+    expect(migrated.inheritedFields).toContain("tools.usage")
     expect(migrated.profile.customRules).toEqual([])
+    expect(migrated.profile.tools.usage).toBe("when-useful")
   })
 
-  it("migrates schema v2 profiles to independent v4 roots", () => {
+  it("migrates schema v2 profiles to independent v5 roots", () => {
     const legacy = JSON.stringify({
       schemaVersion: 2,
       id: "legacy-v2",
       name: "Legacy v2",
       description: "",
-      profile: (({ customRules: _customRules, ...legacyProfile }) => legacyProfile)(profile),
+      profile: (({ customRules: _customRules, tools: _tools, ...legacyProfile }) => legacyProfile)(profile),
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-02T00:00:00.000Z"
     })
 
     const migrated = parseProfileDocument(legacy)
 
-    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.schemaVersion).toBe(5)
     expect(migrated.baseProfileId).toBeNull()
     expect(migrated.inheritedFields).toEqual([])
     expect(migrated.updatedAt).toBe("2026-09-02T00:00:00.000Z")
@@ -342,11 +377,12 @@ describe("profile documents", () => {
 
     const migrated = parseProfileDocument(legacy)
 
-    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.schemaVersion).toBe(5)
     expect(migrated.profile.communication.directness).toBe(90)
     expect(migrated.profile.communication.formality).toBe(45)
     expect(migrated.profile.reasoning.verification).toBe(85)
     expect(migrated.profile.customRules).toEqual([])
+    expect(migrated.profile.tools.usage).toBe("when-useful")
     expect(migrated.updatedAt).toBe("2026-09-02T00:00:00.000Z")
   })
 
