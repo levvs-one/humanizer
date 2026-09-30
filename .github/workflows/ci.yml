@@ -34,6 +34,7 @@ jobs:
       - run: pnpm build
 
   native:
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
