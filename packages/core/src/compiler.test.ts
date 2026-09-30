@@ -111,3 +111,45 @@ describe("task-specific compilation", () => {
     expect(result.warnings.some((warning) => warning.includes("does not match"))).toBe(true)
   })
 })
+
+
+describe("provider-specific rendering", () => {
+  it("uses structural XML for Claude targets", () => {
+    const result = compilePrompt({
+      profile,
+      brief: {
+        goal: "Summarize the supplied engineering decision.",
+        context: "",
+        output: "Return one concise recommendation.",
+        constraints: ""
+      },
+      target: {
+        surfaceId: "anthropic-api-system",
+        modelId: "claude-sonnet-5"
+      }
+    })
+
+    expect(result.text).toContain("<role>")
+    expect(result.text).toContain("<task>")
+    expect(result.text).toContain("</task>")
+  })
+
+  it("keeps OpenAI prompts in clean text sections", () => {
+    const result = compilePrompt({
+      profile,
+      brief: {
+        goal: "Summarize the supplied engineering decision.",
+        context: "",
+        output: "",
+        constraints: ""
+      },
+      target: {
+        surfaceId: "openai-api-developer",
+        modelId: "gpt-5.6-sol"
+      }
+    })
+
+    expect(result.text).toContain("Role\n")
+    expect(result.text).not.toContain("<role>")
+  })
+})
