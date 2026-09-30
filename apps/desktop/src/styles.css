@@ -1320,3 +1320,30 @@ select:focus {
     flex-wrap: wrap;
   }
 }
+
+
+.inheritance-note {
+  margin-top: 8px !important;
+  color: #4f4f54 !important;
+  font-size: 12px !important;
+}
+
+.profile-inheritance-summary {
+  margin: 7px 0 0;
+  color: #5f5f64;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.profile-row-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 360px;
+}
+
+@media (max-width: 900px) {
+  .profile-row-actions {
+    justify-content: flex-start;
+    max-width: none;
+  }
+}
