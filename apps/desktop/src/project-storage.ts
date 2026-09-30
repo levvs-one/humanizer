@@ -6,27 +6,34 @@ import {
 
 const STORAGE_KEY = "humanizer.projects.v1"
 
-export function loadProjects(): ProjectDocument[] {
+export interface LoadedProjects {
+  projects: ProjectDocument[]
+  storageAvailable: boolean
+}
+
+export function loadProjects(): LoadedProjects {
   try {
     const serialized = window.localStorage.getItem(STORAGE_KEY)
     if (!serialized) {
-      return []
+      return { projects: [], storageAvailable: true }
     }
 
     const values: unknown = JSON.parse(serialized)
     if (!Array.isArray(values)) {
-      return []
+      return { projects: [], storageAvailable: true }
     }
 
-    return values.flatMap((value) => {
+    const projects = values.flatMap((value) => {
       try {
         return [parseProjectDocument(JSON.stringify(value))]
       } catch {
         return []
       }
     })
+
+    return { projects, storageAvailable: true }
   } catch {
-    return []
+    return { projects: [], storageAvailable: false }
   }
 }
 
