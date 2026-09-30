@@ -1,9 +1,10 @@
 import type {
   BehaviorProfile,
+  ToolUsePolicy,
   UncertaintyHandling
 } from "./types"
 
-export const PROFILE_SCHEMA_VERSION = 4 as const
+export const PROFILE_SCHEMA_VERSION = 5 as const
 
 export const BEHAVIOR_FIELD_PATHS = [
   "role",
@@ -21,6 +22,9 @@ export const BEHAVIOR_FIELD_PATHS = [
   "research.rigor",
   "research.preferPrimarySources",
   "research.allowCommunitySources",
+  "tools.usage",
+  "tools.confirmExternalActions",
+  "tools.preferReadOnly",
   "writing.avoidAISlop",
   "writing.avoidUnnecessaryHeadings",
   "writing.avoidRestatingPrompt"
@@ -50,7 +54,8 @@ export interface CreateProfileInput {
   now?: string
 }
 
-type LegacyBehaviorProfileV3 = Omit<BehaviorProfile, "customRules">
+type LegacyBehaviorProfileV4 = Omit<BehaviorProfile, "tools">
+type LegacyBehaviorProfileV3 = Omit<LegacyBehaviorProfileV4, "customRules">
 
 interface LegacyBehaviorProfileV1 {
   role: string
@@ -95,6 +100,10 @@ function isUncertaintyHandling(value: unknown): value is UncertaintyHandling {
   return ["quiet", "explicit", "strict"].includes(String(value))
 }
 
+function isToolUsePolicy(value: unknown): value is ToolUsePolicy {
+  return ["off", "when-useful", "proactive"].includes(String(value))
+}
+
 function hasResearch(value: unknown): value is BehaviorProfile["research"] {
   if (!isRecord(value)) return false
 
@@ -102,6 +111,16 @@ function hasResearch(value: unknown): value is BehaviorProfile["research"] {
     isNumber(value.rigor) &&
     typeof value.preferPrimarySources === "boolean" &&
     typeof value.allowCommunitySources === "boolean"
+  )
+}
+
+function hasTools(value: unknown): value is BehaviorProfile["tools"] {
+  if (!isRecord(value)) return false
+
+  return (
+    isToolUsePolicy(value.usage) &&
+    typeof value.confirmExternalActions === "boolean" &&
+    typeof value.preferReadOnly === "boolean"
   )
 }
 
@@ -140,7 +159,7 @@ function isLegacyBehaviorProfileV3(value: unknown): value is LegacyBehaviorProfi
   )
 }
 
-function isBehaviorProfileV4(value: unknown): value is BehaviorProfile {
+function isLegacyBehaviorProfileV4(value: unknown): value is LegacyBehaviorProfileV4 {
   if (!isRecord(value) || !isLegacyBehaviorProfileV3(value)) return false
 
   const customRules = (value as Record<string, unknown>).customRules
@@ -148,6 +167,14 @@ function isBehaviorProfileV4(value: unknown): value is BehaviorProfile {
   return (
     Array.isArray(customRules) &&
     customRules.every((rule: unknown) => typeof rule === "string")
+  )
+}
+
+function isBehaviorProfileV5(value: unknown): value is BehaviorProfile {
+  return (
+    isRecord(value) &&
+    isLegacyBehaviorProfileV4(value) &&
+    hasTools(value.tools)
   )
 }
 
@@ -178,6 +205,14 @@ function isBehaviorFieldPath(value: unknown): value is BehaviorFieldPath {
   )
 }
 
+function defaultToolPolicy(): BehaviorProfile["tools"] {
+  return {
+    usage: "when-useful",
+    confirmExternalActions: true,
+    preferReadOnly: true
+  }
+}
+
 function migrateProfileV1(profile: LegacyBehaviorProfileV1): BehaviorProfile {
   return {
     role: profile.role,
@@ -197,6 +232,7 @@ function migrateProfileV1(profile: LegacyBehaviorProfileV1): BehaviorProfile {
       uncertaintyHandling: "explicit"
     },
     research: structuredClone(profile.research),
+    tools: defaultToolPolicy(),
     writing: structuredClone(profile.writing)
   }
 }
@@ -204,7 +240,15 @@ function migrateProfileV1(profile: LegacyBehaviorProfileV1): BehaviorProfile {
 function migrateProfileV3(profile: LegacyBehaviorProfileV3): BehaviorProfile {
   return {
     ...structuredClone(profile),
-    customRules: []
+    customRules: [],
+    tools: defaultToolPolicy()
+  }
+}
+
+function migrateProfileV4(profile: LegacyBehaviorProfileV4): BehaviorProfile {
+  return {
+    ...structuredClone(profile),
+    tools: defaultToolPolicy()
   }
 }
 
@@ -236,6 +280,9 @@ function fieldValue(profile: BehaviorProfile, path: BehaviorFieldPath): unknown 
     case "research.rigor": return profile.research.rigor
     case "research.preferPrimarySources": return profile.research.preferPrimarySources
     case "research.allowCommunitySources": return profile.research.allowCommunitySources
+    case "tools.usage": return profile.tools.usage
+    case "tools.confirmExternalActions": return profile.tools.confirmExternalActions
+    case "tools.preferReadOnly": return profile.tools.preferReadOnly
     case "writing.avoidAISlop": return profile.writing.avoidAISlop
     case "writing.avoidUnnecessaryHeadings": return profile.writing.avoidUnnecessaryHeadings
     case "writing.avoidRestatingPrompt": return profile.writing.avoidRestatingPrompt
@@ -263,6 +310,9 @@ function inheritField(
     case "research.rigor": target.research.rigor = base.research.rigor; return
     case "research.preferPrimarySources": target.research.preferPrimarySources = base.research.preferPrimarySources; return
     case "research.allowCommunitySources": target.research.allowCommunitySources = base.research.allowCommunitySources; return
+    case "tools.usage": target.tools.usage = base.tools.usage; return
+    case "tools.confirmExternalActions": target.tools.confirmExternalActions = base.tools.confirmExternalActions; return
+    case "tools.preferReadOnly": target.tools.preferReadOnly = base.tools.preferReadOnly; return
     case "writing.avoidAISlop": target.writing.avoidAISlop = base.writing.avoidAISlop; return
     case "writing.avoidUnnecessaryHeadings": target.writing.avoidUnnecessaryHeadings = base.writing.avoidUnnecessaryHeadings; return
     case "writing.avoidRestatingPrompt": target.writing.avoidRestatingPrompt = base.writing.avoidRestatingPrompt; return
@@ -503,7 +553,7 @@ export function parseProfileDocument(serialized: string): ProfileDocument {
 
   if (
     value.schemaVersion === PROFILE_SCHEMA_VERSION &&
-    isBehaviorProfileV4(value.profile) &&
+    isBehaviorProfileV5(value.profile) &&
     (value.baseProfileId === null ||
       (typeof value.baseProfileId === "string" && value.baseProfileId !== value.id)) &&
     Array.isArray(value.inheritedFields) &&
@@ -523,6 +573,42 @@ export function parseProfileDocument(serialized: string): ProfileDocument {
   }
 
   if (
+    value.schemaVersion === 4 &&
+    isLegacyBehaviorProfileV4(value.profile) &&
+    (value.baseProfileId === null ||
+      (typeof value.baseProfileId === "string" && value.baseProfileId !== value.id)) &&
+    Array.isArray(value.inheritedFields) &&
+    value.inheritedFields.every(isBehaviorFieldPath)
+  ) {
+    const baseProfileId = value.baseProfileId as string | null
+    const inheritedFields = [...new Set(value.inheritedFields as BehaviorFieldPath[])]
+
+    if (baseProfileId !== null) {
+      for (const path of [
+        "tools.usage",
+        "tools.confirmExternalActions",
+        "tools.preferReadOnly"
+      ] as BehaviorFieldPath[]) {
+        if (!inheritedFields.includes(path)) {
+          inheritedFields.push(path)
+        }
+      }
+    }
+
+    return {
+      schemaVersion: PROFILE_SCHEMA_VERSION,
+      id: value.id as string,
+      name: value.name as string,
+      description: value.description as string,
+      profile: migrateProfileV4(value.profile),
+      baseProfileId,
+      inheritedFields: baseProfileId === null ? [] : inheritedFields,
+      createdAt: value.createdAt as string,
+      updatedAt: value.updatedAt as string
+    }
+  }
+
+  if (
     value.schemaVersion === 3 &&
     isLegacyBehaviorProfileV3(value.profile) &&
     (value.baseProfileId === null ||
@@ -533,8 +619,17 @@ export function parseProfileDocument(serialized: string): ProfileDocument {
     const baseProfileId = value.baseProfileId as string | null
     const inheritedFields = [...new Set(value.inheritedFields as BehaviorFieldPath[])]
 
-    if (baseProfileId !== null && !inheritedFields.includes("customRules")) {
-      inheritedFields.push("customRules")
+    if (baseProfileId !== null) {
+      for (const path of [
+        "customRules",
+        "tools.usage",
+        "tools.confirmExternalActions",
+        "tools.preferReadOnly"
+      ] as BehaviorFieldPath[]) {
+        if (!inheritedFields.includes(path)) {
+          inheritedFields.push(path)
+        }
+      }
     }
 
     return {
@@ -576,7 +671,7 @@ export function parseProfileDocument(serialized: string): ProfileDocument {
     }
   }
 
-  if (![1, 2, 3, PROFILE_SCHEMA_VERSION].includes(Number(value.schemaVersion))) {
+  if (![1, 2, 3, 4, PROFILE_SCHEMA_VERSION].includes(Number(value.schemaVersion))) {
     throw new Error("Unsupported profile schema version.")
   }
 
