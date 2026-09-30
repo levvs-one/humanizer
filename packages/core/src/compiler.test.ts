@@ -101,8 +101,8 @@ describe("task-specific compilation", () => {
       }
     })
 
-    expect(result.text.startsWith("Task\nReview the supplied implementation")).toBe(true)
-    expect(result.text).toContain("Constraints\nDo not invent library APIs.")
+    expect(result.text.startsWith("# Task\nReview the supplied implementation")).toBe(true)
+    expect(result.text).toContain("# Constraints\nDo not invent library APIs.")
     expect(result.model?.id).toBe("gpt-5.6-sol")
   })
 
@@ -156,7 +156,7 @@ describe("provider-specific rendering", () => {
       }
     })
 
-    expect(result.text).toContain("Role\n")
+    expect(result.text).toContain("# Role\n")
     expect(result.text).not.toContain("<role>")
   })
 })
