@@ -87,21 +87,33 @@ function isNumber(value: unknown): value is number {
 }
 
 function isPurpose(value: unknown): value is BehaviorProfile["purpose"] {
-  return ["general", "engineering", "research", "writing", "agent"].includes(String(value))
+  return (
+    typeof value === "string" &&
+    ["general", "engineering", "research", "writing", "agent"].includes(value)
+  )
 }
 
 function isVerbosity(
   value: unknown
 ): value is BehaviorProfile["communication"]["verbosity"] {
-  return ["low", "medium", "high"].includes(String(value))
+  return (
+    typeof value === "string" &&
+    ["low", "medium", "high"].includes(value)
+  )
 }
 
 function isUncertaintyHandling(value: unknown): value is UncertaintyHandling {
-  return ["quiet", "explicit", "strict"].includes(String(value))
+  return (
+    typeof value === "string" &&
+    ["quiet", "explicit", "strict"].includes(value)
+  )
 }
 
 function isToolUsePolicy(value: unknown): value is ToolUsePolicy {
-  return ["off", "when-useful", "proactive"].includes(String(value))
+  return (
+    typeof value === "string" &&
+    ["off", "when-useful", "proactive"].includes(value)
+  )
 }
 
 function hasResearch(value: unknown): value is BehaviorProfile["research"] {
