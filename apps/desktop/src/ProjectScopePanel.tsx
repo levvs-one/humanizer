@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
 import {
+  applyBehaviorOverrides,
   parseProjectDocument,
   updateProjectDocument,
   type BehaviorFieldPath,
@@ -13,6 +14,8 @@ interface ProjectScopePanelProps {
   projects: ProjectDocument[]
   activeProject: ProjectDocument | null
   baseProfile: BehaviorProfile
+  activeModelId: string
+  activeModelLabel: string
   storageAvailable: boolean
   onSelect: (projectId: string | null) => void
   onCreate: () => void
@@ -25,6 +28,8 @@ export default function ProjectScopePanel({
   projects,
   activeProject,
   baseProfile,
+  activeModelId,
+  activeModelLabel,
   storageAvailable,
   onSelect,
   onCreate,
@@ -36,6 +41,9 @@ export default function ProjectScopePanel({
   const [importError, setImportError] = useState<string | null>(null)
   const overrides = activeProject?.behaviorOverrides ?? {}
   const overrideCount = Object.keys(overrides).length
+  const projectProfile = applyBehaviorOverrides(baseProfile, overrides)
+  const modelOverrides = activeProject?.modelOverrides[activeModelId] ?? {}
+  const modelOverrideCount = Object.keys(modelOverrides).length
 
   async function importProject(file: File | undefined) {
     if (!file) return
@@ -79,6 +87,41 @@ export default function ProjectScopePanel({
 
   function numericOverride(path: BehaviorFieldPath): string {
     const value = overrides[path]
+    return typeof value === "number" ? String(value) : ""
+  }
+
+  function setModelOverride(
+    path: BehaviorFieldPath,
+    value: BehaviorOverrideValue | undefined
+  ) {
+    if (!activeProject) {
+      return
+    }
+
+    const nextModelOverrides = { ...activeProject.modelOverrides }
+    const next = { ...(nextModelOverrides[activeModelId] ?? {}) }
+
+    if (value === undefined) {
+      delete next[path]
+    } else {
+      next[path] = value
+    }
+
+    if (Object.keys(next).length === 0) {
+      delete nextModelOverrides[activeModelId]
+    } else {
+      nextModelOverrides[activeModelId] = next
+    }
+
+    onUpdate(
+      updateProjectDocument(activeProject, {
+        modelOverrides: nextModelOverrides
+      })
+    )
+  }
+
+  function numericModelOverride(path: BehaviorFieldPath): string {
+    const value = modelOverrides[path]
     return typeof value === "number" ? String(value) : ""
   }
 
@@ -129,7 +172,10 @@ export default function ProjectScopePanel({
         <div className="field project-create-field">
           <div className="field-heading">
             <label>Scope</label>
-            <span>{overrideCount} overrides</span>
+            <span>
+              {overrideCount} project
+              {modelOverrideCount > 0 ? " · " + modelOverrideCount + " model" : ""}
+            </span>
           </div>
           <input
             ref={fileInput}
