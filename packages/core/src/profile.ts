@@ -469,7 +469,8 @@ export function parseProfileDocument(serialized: string): ProfileDocument {
   if (
     value.schemaVersion === PROFILE_SCHEMA_VERSION &&
     isBehaviorProfileV2(value.profile) &&
-    (value.baseProfileId === null || typeof value.baseProfileId === "string") &&
+    (value.baseProfileId === null ||
+      (typeof value.baseProfileId === "string" && value.baseProfileId !== value.id)) &&
     Array.isArray(value.inheritedFields) &&
     value.inheritedFields.every(isBehaviorFieldPath)
   ) {
