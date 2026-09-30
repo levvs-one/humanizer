@@ -102,6 +102,14 @@ export interface CompileRequest {
 
 export type CompileStatus = "fits" | "overflow" | "no-verified-limit"
 
+export type PromptDiagnosticSeverity = "info" | "warning" | "error"
+
+export interface PromptDiagnostic {
+  code: string
+  severity: PromptDiagnosticSeverity
+  message: string
+}
+
 export interface CompileResult {
   text: string
   characterCount: number
@@ -113,4 +121,5 @@ export interface CompileResult {
   surface: PromptSurface
   model: ModelDefinition | null
   optimization: PromptOptimization
+  diagnostics: PromptDiagnostic[]
 }

@@ -1,3 +1,4 @@
+import { inspectPrompt } from "./inspector"
 import { getModel } from "./models"
 import { buildPromptIR, type PromptIRBlock } from "./prompt-ir"
 import { getSurface, resolveCharacterLimit } from "./registry"
@@ -168,6 +169,18 @@ export function compilePrompt(request: CompileRequest): CompileResult {
     )
   }
 
+  const diagnostics = inspectPrompt(request, {
+    text,
+    characterCount: text.length,
+    characterLimit: limit,
+    status,
+    compactedBlocks,
+    omittedBlocks,
+    surface,
+    model,
+    optimization
+  })
+
   return {
     text,
     characterCount: text.length,
@@ -178,6 +191,7 @@ export function compilePrompt(request: CompileRequest): CompileResult {
     warnings,
     surface,
     model,
-    optimization
+    optimization,
+    diagnostics
   }
 }
