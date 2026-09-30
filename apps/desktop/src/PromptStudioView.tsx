@@ -21,6 +21,14 @@ import {
   type ProviderId
 } from "@humanizer/core"
 import {
+  createConversationSessionKey,
+  loadConversationSessions,
+  removeConversationSession,
+  saveConversationSessions,
+  upsertConversationSession,
+  type ConversationSession
+} from "./conversation-storage"
+import {
   downloadCompiledPrompt,
   downloadPromptDraft,
   loadActivePromptDraftId,
@@ -33,8 +41,7 @@ import {
   countProviderTokens,
   streamProviderPrompt,
   supportsExactTokenPreflight,
-  type ExecutePromptResponse,
-  type RuntimeMessage
+  type ExecutePromptResponse
 } from "./runtime"
 
 const plans: Array<{ value: PlanId; label: string }> = [
@@ -152,9 +159,12 @@ export default function PromptStudioView({
     surfaceId: string
     response: ExecutePromptResponse
   } | null>(null)
+  const [initialConversationStore] = useState(() => loadConversationSessions())
   const [conversationSessions, setConversationSessions] = useState<
-    Record<string, RuntimeMessage[]>
-  >({})
+    ConversationSession[]
+  >(() => initialConversationStore.sessions)
+  const [conversationStorageAvailable, setConversationStorageAvailable] =
+    useState(initialConversationStore.storageAvailable)
 
   const draft = drafts.find((entry) => entry.id === activeDraftId) ?? drafts[0]
 
@@ -167,6 +177,16 @@ export default function PromptStudioView({
       saveActivePromptDraftId(draft.id)
     }
   }, [draft?.id])
+
+  useEffect(() => {
+    if (!conversationStorageAvailable) {
+      return
+    }
+
+    if (!saveConversationSessions(conversationSessions)) {
+      setConversationStorageAvailable(false)
+    }
+  }, [conversationSessions, conversationStorageAvailable])
 
   if (!draft) {
     return null
@@ -224,13 +244,14 @@ export default function PromptStudioView({
   const requiresRuntimeInput = activeSurface.instructionRole !== "user"
   const supportsConversation = isApiTarget && requiresRuntimeInput
   const runtimeInput = runInputs[activeDraft.id] ?? ""
-  const conversationKey = [
+  const conversationKey = createConversationSessionKey(
     activeDraft.id,
     activeModel.id,
     activeSurface.id,
     result.text
-  ].join("\u0000")
-  const conversationHistory = conversationSessions[conversationKey] ?? []
+  )
+  const conversationHistory =
+    conversationSessions.find((session) => session.key === conversationKey)?.messages ?? []
   const currentExecution =
     execution &&
     execution.draftId === activeDraft.id &&
@@ -568,14 +589,21 @@ export default function PromptStudioView({
               runRuntimeInput.length > 0 &&
               completedText.trim().length > 0
             ) {
-              setConversationSessions((current) => ({
-                ...current,
-                [runConversationKey]: [
-                  ...(current[runConversationKey] ?? runHistory),
-                  { role: "user", text: runRuntimeInput },
-                  { role: "assistant", text: completedText.trim() }
-                ]
-              }))
+              setConversationSessions((current) => {
+                const existing =
+                  current.find((session) => session.key === runConversationKey)?.messages ??
+                  runHistory
+
+                return upsertConversationSession(
+                  current,
+                  runConversationKey,
+                  [
+                    ...existing,
+                    { role: "user", text: runRuntimeInput },
+                    { role: "assistant", text: completedText.trim() }
+                  ]
+                )
+              })
               setRunInputs((current) => ({
                 ...current,
                 [runDraftId]: ""
@@ -611,11 +639,9 @@ export default function PromptStudioView({
   }
 
   function clearConversation() {
-    setConversationSessions((current) => {
-      const next = { ...current }
-      delete next[conversationKey]
-      return next
-    })
+    setConversationSessions((current) =>
+      removeConversationSession(current, conversationKey)
+    )
     setExecution(null)
     setExecutionError(null)
     setTokenCount(null)
@@ -1090,8 +1116,13 @@ export default function PromptStudioView({
                 <span>
                   {supportsConversation
                     ? conversationHistory.length > 0
-                      ? conversationHistory.length / 2 + " turns in this local session."
-                      : "Conversation history stays local to this Studio session."
+                      ? conversationHistory.length / 2 +
+                        (conversationStorageAvailable
+                          ? " turns saved locally."
+                          : " turns in memory only.")
+                      : conversationStorageAvailable
+                        ? "Conversation history is saved locally on this device."
+                        : "Local storage is unavailable; conversation history stays in memory."
                     : "Responses are not saved."}
                 </span>
               </div>
