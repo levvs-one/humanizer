@@ -13,6 +13,7 @@ interface ProjectScopePanelProps {
   projects: ProjectDocument[]
   activeProject: ProjectDocument | null
   baseProfile: BehaviorProfile
+  storageAvailable: boolean
   onSelect: (projectId: string | null) => void
   onCreate: () => void
   onImport: (project: ProjectDocument) => void
@@ -24,6 +25,7 @@ export default function ProjectScopePanel({
   projects,
   activeProject,
   baseProfile,
+  storageAvailable,
   onSelect,
   onCreate,
   onImport,
@@ -97,7 +99,10 @@ export default function ProjectScopePanel({
     <section className="panel compact-summary-panel">
       <div className="panel-heading">
         <h2>Project scope</h2>
-        <p>Share behavior overrides across multiple prompt drafts.</p>
+        <p>
+          Share behavior overrides across multiple prompt drafts.
+          {!storageAvailable ? " Local storage is unavailable; projects stay in memory only." : ""}
+        </p>
       </div>
 
       <div className="two-column-fields">
