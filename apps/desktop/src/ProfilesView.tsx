@@ -1,8 +1,13 @@
 import { useRef, useState } from "react"
 import {
+  createDerivedProfileDocument,
   createProfileDocument,
+  detachProfileDocument,
   duplicateProfileDocument,
+  materializeProfileDocument,
   parseProfileDocument,
+  resetProfileInheritance,
+  resolveProfileDocument,
   updateProfileDocument,
   type BehaviorProfile,
   type ProfileDocument
@@ -60,9 +65,27 @@ export default function ProfilesView({
   }
 
   function duplicate(profile: ProfileDocument) {
-    const document = duplicateProfileDocument(profile)
+    const document = duplicateProfileDocument(profile, { documents: profiles })
     onCreate(document)
     onUse(document.id)
+  }
+
+  function derive(profile: ProfileDocument) {
+    const document = createDerivedProfileDocument(profile, profiles)
+    onCreate(document)
+    onUse(document.id)
+  }
+
+  function detach(profile: ProfileDocument) {
+    onUpdate(detachProfileDocument(profile, profiles))
+  }
+
+  function reset(profile: ProfileDocument) {
+    onUpdate(resetProfileInheritance(profile, profiles))
+  }
+
+  function exportProfile(profile: ProfileDocument) {
+    downloadProfile(materializeProfileDocument(profile, profiles))
   }
 
   async function importProfile(file: File | undefined) {
@@ -72,14 +95,15 @@ export default function ProfilesView({
 
     try {
       const imported = parseProfileDocument(await file.text())
-      const idCollision = profiles.some((profile) => profile.id === imported.id)
+      const portable = materializeProfileDocument(imported, [...profiles, imported])
+      const idCollision = profiles.some((profile) => profile.id === portable.id)
       const document = idCollision
         ? createProfileDocument({
-            name: imported.name,
-            description: imported.description,
-            profile: imported.profile
+            name: portable.name,
+            description: portable.description,
+            profile: portable.profile
           })
-        : imported
+        : portable
 
       onCreate(document)
       onUse(document.id)
@@ -99,7 +123,7 @@ export default function ProfilesView({
         <div>
           <h1>Profiles</h1>
           <p>
-            Save behavior once, then compile it for different models and instruction surfaces.
+            Build base behavior once, then derive focused variants that keep following it until a field is overridden.
           </p>
         </div>
 
@@ -129,9 +153,20 @@ export default function ProfilesView({
       <section className="profiles-list" aria-label="Saved profiles">
         {profiles.map((profile) => {
           const active = profile.id === activeProfileId
+          const resolved = resolveProfileDocument(profile, profiles)
+          const base = profile.baseProfileId
+            ? profiles.find((entry) => entry.id === profile.baseProfileId)
+            : undefined
+          const overrideCount =
+            profile.baseProfileId === null
+              ? 0
+              : 17 - profile.inheritedFields.length
 
           return (
-            <article className={active ? "profile-row active-profile" : "profile-row"} key={profile.id}>
+            <article
+              className={active ? "profile-row active-profile" : "profile-row"}
+              key={profile.id}
+            >
               <div className="profile-row-main">
                 <div className="profile-row-title">
                   <input
@@ -144,6 +179,7 @@ export default function ProfilesView({
                   />
                   {active ? <span>Active</span> : null}
                 </div>
+
                 <input
                   className="profile-description-input"
                   aria-label={"Profile description for " + profile.name}
@@ -157,14 +193,25 @@ export default function ProfilesView({
                     )
                   }
                 />
+
+                {base ? (
+                  <p className="profile-inheritance-summary">
+                    Based on {base.name}
+                    {overrideCount > 0
+                      ? " with " + overrideCount + " local " +
+                        (overrideCount === 1 ? "override" : "overrides")
+                      : ""}
+                  </p>
+                ) : null}
+
                 <dl className="profile-row-meta">
                   <div>
                     <dt>Role</dt>
-                    <dd>{profile.profile.role}</dd>
+                    <dd>{resolved.role}</dd>
                   </div>
                   <div>
                     <dt>Purpose</dt>
-                    <dd>{profile.profile.purpose}</dd>
+                    <dd>{resolved.purpose}</dd>
                   </div>
                   <div>
                     <dt>Updated</dt>
@@ -175,16 +222,40 @@ export default function ProfilesView({
 
               <div className="profile-row-actions">
                 {!active ? (
-                  <button className="secondary-button" type="button" onClick={() => onUse(profile.id)}>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => onUse(profile.id)}
+                  >
                     Use
                   </button>
                 ) : null}
+
+                <button className="plain-button" type="button" onClick={() => derive(profile)}>
+                  Derive
+                </button>
+
                 <button className="plain-button" type="button" onClick={() => duplicate(profile)}>
                   Duplicate
                 </button>
-                <button className="plain-button" type="button" onClick={() => downloadProfile(profile)}>
+
+                {profile.baseProfileId ? (
+                  <>
+                    {overrideCount > 0 ? (
+                      <button className="plain-button" type="button" onClick={() => reset(profile)}>
+                        Reset overrides
+                      </button>
+                    ) : null}
+                    <button className="plain-button" type="button" onClick={() => detach(profile)}>
+                      Detach
+                    </button>
+                  </>
+                ) : null}
+
+                <button className="plain-button" type="button" onClick={() => exportProfile(profile)}>
                   Export
                 </button>
+
                 {profiles.length > 1 ? (
                   <button
                     className="plain-button danger"
