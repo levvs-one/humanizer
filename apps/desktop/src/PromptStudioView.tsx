@@ -372,7 +372,7 @@ export default function PromptStudioView({
                   onChange={(event) =>
                     patchDraft({
                       target: {
-                        ...draft.target,
+                        ...activeDraft.target,
                         plan: event.target.value as PlanId
                       }
                     })
