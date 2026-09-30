@@ -487,23 +487,29 @@ export function parseProfileDocument(serialized: string): ProfileDocument {
   }
 
   if (value.schemaVersion === 2 && isBehaviorProfileV2(value.profile)) {
-    return createProfileDocument({
-      id: value.id as string,
-      name: value.name as string,
-      description: value.description as string,
-      profile: value.profile,
-      now: value.createdAt as string
-    })
+    return {
+      ...createProfileDocument({
+        id: value.id as string,
+        name: value.name as string,
+        description: value.description as string,
+        profile: value.profile,
+        now: value.createdAt as string
+      }),
+      updatedAt: value.updatedAt as string
+    }
   }
 
   if (value.schemaVersion === 1 && isLegacyBehaviorProfileV1(value.profile)) {
-    return createProfileDocument({
-      id: value.id as string,
-      name: value.name as string,
-      description: value.description as string,
-      profile: migrateProfileV1(value.profile),
-      now: value.createdAt as string
-    })
+    return {
+      ...createProfileDocument({
+        id: value.id as string,
+        name: value.name as string,
+        description: value.description as string,
+        profile: migrateProfileV1(value.profile),
+        now: value.createdAt as string
+      }),
+      updatedAt: value.updatedAt as string
+    }
   }
 
   if (![1, 2, PROFILE_SCHEMA_VERSION].includes(Number(value.schemaVersion))) {
