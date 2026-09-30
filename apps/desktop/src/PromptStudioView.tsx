@@ -148,7 +148,12 @@ export default function PromptStudioView({
     const stored = loadActivePromptDraftId()
     return stored ?? drafts[0]?.id ?? ""
   })
-  const [projects, setProjects] = useState<ProjectDocument[]>(() => loadProjects())
+  const [initialProjectStore] = useState(() => loadProjects())
+  const [projects, setProjects] = useState<ProjectDocument[]>(
+    () => initialProjectStore.projects
+  )
+  const [projectStorageAvailable, setProjectStorageAvailable] =
+    useState(initialProjectStore.storageAvailable)
   const [copied, setCopied] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [runInputs, setRunInputs] = useState<Record<string, string>>({})
@@ -187,8 +192,14 @@ export default function PromptStudioView({
   }, [draft?.id])
 
   useEffect(() => {
-    saveProjects(projects)
-  }, [projects])
+    if (!projectStorageAvailable) {
+      return
+    }
+
+    if (!saveProjects(projects)) {
+      setProjectStorageAvailable(false)
+    }
+  }, [projects, projectStorageAvailable])
 
   useEffect(() => {
     if (!conversationStorageAvailable) {
@@ -955,6 +966,7 @@ export default function PromptStudioView({
             projects={projects}
             activeProject={activeProject}
             baseProfile={activeProfile.profile}
+            storageAvailable={projectStorageAvailable}
             onSelect={(projectId) => patchDraft({ projectId })}
             onCreate={createProject}
             onImport={importProject}
