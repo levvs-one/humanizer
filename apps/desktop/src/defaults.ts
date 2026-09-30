@@ -27,6 +27,11 @@ export const DEFAULT_BEHAVIOR: BehaviorProfile = {
     preferPrimarySources: true,
     allowCommunitySources: true
   },
+  tools: {
+    usage: "proactive",
+    confirmExternalActions: true,
+    preferReadOnly: true
+  },
   writing: {
     avoidAISlop: true,
     avoidUnnecessaryHeadings: true,
@@ -57,6 +62,11 @@ const RESEARCH_BEHAVIOR: BehaviorProfile = {
     preferPrimarySources: true,
     allowCommunitySources: true
   },
+  tools: {
+    usage: "when-useful",
+    confirmExternalActions: true,
+    preferReadOnly: true
+  },
   writing: {
     avoidAISlop: true,
     avoidUnnecessaryHeadings: true,
@@ -86,6 +96,11 @@ const WRITER_BEHAVIOR: BehaviorProfile = {
     rigor: 62,
     preferPrimarySources: true,
     allowCommunitySources: true
+  },
+  tools: {
+    usage: "when-useful",
+    confirmExternalActions: true,
+    preferReadOnly: true
   },
   writing: {
     avoidAISlop: true,
