@@ -2,6 +2,8 @@
 
 Behavior profiles are structured configuration. They are not stored prompt text.
 
+Profiles can also carry reusable hard rules. Each rule is stored as an individual structured entry, follows the same inheritance model as the rest of the profile, and is emitted as required intent during compilation.
+
 ## Root profiles
 
 A root profile owns all of its behavior values.
@@ -56,4 +58,4 @@ Direct children are detached first using their currently resolved behavior. Prof
 
 A single exported profile is portable. Derived profiles are materialized before export so the file does not depend on another local profile that may not exist on the destination machine.
 
-Schema v1 and v2 profile files migrate to schema v3 as independent root profiles.
+Schema v1 and v2 profile files migrate to schema v4 as independent root profiles. Schema v3 files preserve their inheritance links while gaining an inherited empty hard-rules field.
