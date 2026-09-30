@@ -7,13 +7,14 @@ import type {
   PromptTarget
 } from "./types"
 
-export const PROMPT_DRAFT_SCHEMA_VERSION = 2 as const
+export const PROMPT_DRAFT_SCHEMA_VERSION = 3 as const
 
 export interface PromptDraftDocument {
   schemaVersion: typeof PROMPT_DRAFT_SCHEMA_VERSION
   id: string
   name: string
   profileId: string
+  projectId: string | null
   behaviorOverrides: BehaviorOverrideSet
   target: PromptTarget
   brief: PromptBrief
@@ -25,6 +26,7 @@ export interface CreatePromptDraftInput {
   id?: string
   name?: string
   profileId: string
+  projectId?: string | null
   behaviorOverrides?: BehaviorOverrideSet
   target: PromptTarget
   brief?: PromptBrief
@@ -137,6 +139,7 @@ export function createPromptDraftDocument(
     id: input.id ?? createId(),
     name: input.name?.trim() || "Untitled Prompt",
     profileId: input.profileId,
+    projectId: input.projectId ?? null,
     behaviorOverrides: structuredClone(input.behaviorOverrides ?? {}),
     target: structuredClone(input.target),
     brief: structuredClone(input.brief ?? EMPTY_BRIEF),
@@ -150,7 +153,7 @@ export function updatePromptDraftDocument(
   changes: Partial<
     Pick<
       PromptDraftDocument,
-      "name" | "profileId" | "behaviorOverrides" | "target" | "brief"
+      "name" | "profileId" | "projectId" | "behaviorOverrides" | "target" | "brief"
     >
   >,
   now = new Date().toISOString()
@@ -160,6 +163,8 @@ export function updatePromptDraftDocument(
     ...changes,
     name: changes.name === undefined ? source.name : changes.name,
     profileId: changes.profileId ?? source.profileId,
+    projectId:
+      changes.projectId === undefined ? source.projectId : changes.projectId,
     behaviorOverrides: changes.behaviorOverrides
       ? structuredClone(changes.behaviorOverrides)
       : source.behaviorOverrides,
@@ -176,6 +181,7 @@ export function duplicatePromptDraftDocument(
   return createPromptDraftDocument({
     name: options.name?.trim() || source.name + " Copy",
     profileId: source.profileId,
+    projectId: source.projectId,
     behaviorOverrides: source.behaviorOverrides,
     target: source.target,
     brief: source.brief,
@@ -211,6 +217,28 @@ export function parsePromptDraftDocument(
       id: value.id as string,
       name: value.name as string,
       profileId: value.profileId as string,
+      projectId:
+        value.projectId === null || typeof value.projectId === "string"
+          ? value.projectId
+          : null,
+      behaviorOverrides: structuredClone(value.behaviorOverrides),
+      target: structuredClone(value.target as PromptTarget),
+      brief: structuredClone(value.brief as PromptBrief),
+      createdAt: value.createdAt as string,
+      updatedAt: value.updatedAt as string
+    }
+  }
+
+  if (
+    value.schemaVersion === 2 &&
+    isBehaviorOverrideSet(value.behaviorOverrides)
+  ) {
+    return {
+      schemaVersion: PROMPT_DRAFT_SCHEMA_VERSION,
+      id: value.id as string,
+      name: value.name as string,
+      profileId: value.profileId as string,
+      projectId: null,
       behaviorOverrides: structuredClone(value.behaviorOverrides),
       target: structuredClone(value.target as PromptTarget),
       brief: structuredClone(value.brief as PromptBrief),
@@ -225,6 +253,7 @@ export function parsePromptDraftDocument(
       id: value.id as string,
       name: value.name as string,
       profileId: value.profileId as string,
+      projectId: null,
       behaviorOverrides: {},
       target: structuredClone(value.target as PromptTarget),
       brief: structuredClone(value.brief as PromptBrief),
@@ -233,7 +262,7 @@ export function parsePromptDraftDocument(
     }
   }
 
-  if (![1, PROMPT_DRAFT_SCHEMA_VERSION].includes(Number(value.schemaVersion))) {
+  if (![1, 2, PROMPT_DRAFT_SCHEMA_VERSION].includes(Number(value.schemaVersion))) {
     throw new Error("Unsupported prompt draft schema version.")
   }
 
