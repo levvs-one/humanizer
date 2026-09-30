@@ -20,6 +20,7 @@ const profile: BehaviorProfile = {
   role: "Research engineer",
   objective: "Investigate technical questions using primary evidence.",
   purpose: "research",
+  customRules: ["Never invent source content."],
   communication: {
     naturalness: 80,
     directness: 82,
@@ -45,7 +46,7 @@ const profile: BehaviorProfile = {
 }
 
 describe("profile documents", () => {
-  it("creates a stable schema v3 root document", () => {
+  it("creates a stable schema v4 root document", () => {
     const document = createProfileDocument({
       id: "research",
       name: "Research",
@@ -53,7 +54,7 @@ describe("profile documents", () => {
       now: "2026-09-30T12:00:00.000Z"
     })
 
-    expect(document.schemaVersion).toBe(3)
+    expect(document.schemaVersion).toBe(4)
     expect(document.id).toBe("research")
     expect(document.baseProfileId).toBeNull()
     expect(document.inheritedFields).toEqual([])
@@ -97,6 +98,33 @@ describe("profile documents", () => {
     expect(child.baseProfileId).toBe("base")
     expect(child.inheritedFields).toHaveLength(BEHAVIOR_FIELD_PATHS.length)
     expect(resolved.communication.directness).toBe(25)
+  })
+
+  it("inherits hard rules until the child overrides them", () => {
+    const base = createProfileDocument({ id: "base", name: "Base", profile })
+    const child = createDerivedProfileDocument(base, [base], { name: "Child" })
+    const changedBase = updateProfileDocument(base, {
+      profile: {
+        ...base.profile,
+        customRules: ["Never invent source content.", "Prefer reversible actions."]
+      }
+    })
+
+    expect(resolveProfileDocument(child, [changedBase, child]).customRules).toEqual([
+      "Never invent source content.",
+      "Prefer reversible actions."
+    ])
+
+    const resolvedBefore = resolveProfileDocument(child, [changedBase, child])
+    const overridden = updateProfileBehavior(child, resolvedBefore, {
+      ...resolvedBefore,
+      customRules: ["Child-only rule."]
+    })
+
+    expect(overridden.inheritedFields).not.toContain("customRules")
+    expect(resolveProfileDocument(overridden, [changedBase, overridden]).customRules).toEqual([
+      "Child-only rule."
+    ])
   })
 
   it("turns only edited inherited fields into local overrides", () => {
@@ -241,20 +269,42 @@ describe("profile documents", () => {
     expect(updated.updatedAt).toBe("2026-09-30T13:00:00.000Z")
   })
 
-  it("migrates schema v2 profiles to independent v3 roots", () => {
+  it("migrates schema v3 inheritance into v4", () => {
+    const { customRules: _customRules, ...legacyProfile } = profile
     const legacy = JSON.stringify({
-      schemaVersion: 2,
-      id: "legacy-v2",
-      name: "Legacy v2",
+      schemaVersion: 3,
+      id: "legacy-child",
+      name: "Legacy child",
       description: "",
-      profile,
+      profile: legacyProfile,
+      baseProfileId: "base",
+      inheritedFields: ["role", "communication.directness"],
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-02T00:00:00.000Z"
     })
 
     const migrated = parseProfileDocument(legacy)
 
-    expect(migrated.schemaVersion).toBe(3)
+    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.baseProfileId).toBe("base")
+    expect(migrated.inheritedFields).toContain("customRules")
+    expect(migrated.profile.customRules).toEqual([])
+  })
+
+  it("migrates schema v2 profiles to independent v4 roots", () => {
+    const legacy = JSON.stringify({
+      schemaVersion: 2,
+      id: "legacy-v2",
+      name: "Legacy v2",
+      description: "",
+      profile: (({ customRules: _customRules, ...legacyProfile }) => legacyProfile)(profile),
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-02T00:00:00.000Z"
+    })
+
+    const migrated = parseProfileDocument(legacy)
+
+    expect(migrated.schemaVersion).toBe(4)
     expect(migrated.baseProfileId).toBeNull()
     expect(migrated.inheritedFields).toEqual([])
     expect(migrated.updatedAt).toBe("2026-09-02T00:00:00.000Z")
@@ -292,10 +342,11 @@ describe("profile documents", () => {
 
     const migrated = parseProfileDocument(legacy)
 
-    expect(migrated.schemaVersion).toBe(3)
+    expect(migrated.schemaVersion).toBe(4)
     expect(migrated.profile.communication.directness).toBe(90)
     expect(migrated.profile.communication.formality).toBe(45)
     expect(migrated.profile.reasoning.verification).toBe(85)
+    expect(migrated.profile.customRules).toEqual([])
     expect(migrated.updatedAt).toBe("2026-09-02T00:00:00.000Z")
   })
 

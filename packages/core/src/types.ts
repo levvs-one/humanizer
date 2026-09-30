@@ -54,6 +54,7 @@ export interface BehaviorProfile {
   role: string
   objective: string
   purpose: PromptPurpose
+  customRules: string[]
   communication: {
     naturalness: number
     directness: number

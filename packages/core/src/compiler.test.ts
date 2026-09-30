@@ -6,6 +6,7 @@ const profile: BehaviorProfile = {
   role: "Principal software engineer",
   objective: "Solve engineering tasks with production-quality judgment.",
   purpose: "engineering",
+  customRules: [],
   communication: {
     naturalness: 90,
     directness: 90,
@@ -67,6 +68,22 @@ describe("compilePrompt", () => {
     expect(result.status).toBe("no-verified-limit")
     expect(result.characterLimit).toBeNull()
     expect(result.warnings.length).toBeGreaterThan(0)
+  })
+
+  it("preserves reusable hard rules in compiled prompts", () => {
+    const result = compilePrompt({
+      profile: {
+        ...profile,
+        customRules: ["Never claim a command ran unless it actually ran."]
+      },
+      target: {
+        surfaceId: "openai-api-developer",
+        modelId: "gpt-5.6-sol"
+      }
+    })
+
+    expect(result.text).toContain("Hard rules")
+    expect(result.text).toContain("Never claim a command ran unless it actually ran.")
   })
 
   it("never slices critical user intent to satisfy a hard limit", () => {

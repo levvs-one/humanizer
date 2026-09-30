@@ -6,6 +6,7 @@ const profile: BehaviorProfile = {
   role: "Principal software engineer",
   objective: "Ship reliable systems.",
   purpose: "engineering",
+  customRules: [],
   communication: {
     naturalness: 90,
     directness: 90,
