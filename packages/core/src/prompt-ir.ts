@@ -13,6 +13,7 @@ export type PromptIRBlockId =
   | "rules"
   | "accuracy"
   | "research"
+  | "tools"
   | "communication"
   | "writing"
   | "workflow"
@@ -169,6 +170,38 @@ function researchInstruction(profile: BehaviorProfile): string {
   }
 
   return "Verify uncertain or current claims when needed. " + sourceOrder + " " + community
+}
+
+function toolInstruction(profile: BehaviorProfile): { full: string; compact: string; required: boolean } {
+  const rules: string[] = []
+
+  if (profile.tools.usage === "off") {
+    rules.push("Do not use external tools, browsing, code execution, or side-effecting actions.")
+  } else if (profile.tools.usage === "proactive") {
+    rules.push("Use available tools proactively when they materially improve accuracy, speed, or task completion.")
+  } else {
+    rules.push("Use available tools when they materially reduce uncertainty or manual work.")
+  }
+
+  if (profile.tools.preferReadOnly) {
+    rules.push("Inspect and gather information with read-only actions before modifying external state.")
+  }
+
+  if (profile.tools.confirmExternalActions) {
+    rules.push("Get explicit confirmation before irreversible, destructive, financial, publishing, or external side-effect actions.")
+  }
+
+  const full = rules.join(" ")
+  return {
+    full,
+    compact:
+      profile.tools.usage === "off"
+        ? "Do not use external tools or actions."
+        : profile.tools.confirmExternalActions
+          ? "Use tools when allowed; prefer read-only inspection and confirm consequential external actions."
+          : "Use tools according to the configured policy and prefer reversible actions.",
+    required: profile.tools.usage === "off" || profile.tools.confirmExternalActions
+  }
 }
 
 function purposeStrategy(
@@ -385,6 +418,14 @@ export function buildPromptIR(profile: BehaviorProfile, brief?: PromptBrief): Pr
           "Verify important uncertain facts. Prefer primary sources when enabled and distinguish community experience from verified fact."
       },
       {
+        id: "tools",
+        heading: "Tool use",
+        priority: 86,
+        required: toolInstruction(profile).required,
+        full: toolInstruction(profile).full,
+        compact: toolInstruction(profile).compact
+      },
+      {
         id: "communication",
         heading: "Communication",
         priority: 78,
@@ -418,9 +459,9 @@ export function buildPromptIR(profile: BehaviorProfile, brief?: PromptBrief): Pr
         full:
           "Understand the task before acting. " +
           initiativeInstruction(profile.reasoning.initiative) +
-          " Use tools or research when they materially reduce uncertainty. Stop researching when the evidence is sufficient, make the decision, and present the result cleanly.",
+          " Stop researching when the evidence is sufficient, make the decision, and present the result cleanly.",
         compact:
-          "Use reasonable initiative. Use research or tools when they reduce meaningful uncertainty, then act."
+          "Use reasonable initiative. Stop once the evidence is sufficient, then act."
       }
     ]
   }
