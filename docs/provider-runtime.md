@@ -88,6 +88,18 @@ Official references:
 
 Verified: 2026-09-30
 
+## Conversation history
+
+Instruction-style API targets can carry local multi-turn history.
+
+Humanizer keeps history in the desktop session and sends prior user/assistant turns using each provider's native request shape:
+
+- OpenAI Responses receives ordered input messages while the compiled behavior remains in `instructions`.
+- Anthropic Messages receives ordered `user` and `assistant` messages while the compiled behavior remains in `system`.
+- Gemini receives ordered `user` and `model` contents while the compiled behavior remains in `system_instruction`.
+
+User-prompt surfaces remain single-turn. Humanizer does not reinterpret a compiled user prompt as a persistent system instruction just to force conversation semantics.
+
 ## Data handling
 
 Humanizer does not persist provider responses from manual Studio runs.
@@ -100,7 +112,7 @@ Provider retention and data-processing behavior remains subject to the provider 
 
 This runtime is for manually executing a compiled prompt from Prompt Studio.
 
-It is not the future Humanizer conversation runtime. Multi-turn state, tools, research routing, streaming, and agent loops belong to the runtime layer that will build on the same native adapters.
+This is still a lightweight Studio runtime rather than the final agent runtime. Multi-turn message history is supported for instruction-style API targets, while tools, research routing, durable sessions, and agent loops remain separate runtime layers.
 
 
 ## Token preflight
