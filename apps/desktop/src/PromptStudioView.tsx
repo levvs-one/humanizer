@@ -41,8 +41,7 @@ import {
   countProviderTokens,
   streamProviderPrompt,
   supportsExactTokenPreflight,
-  type ExecutePromptResponse,
-  type RuntimeMessage
+  type ExecutePromptResponse
 } from "./runtime"
 
 const plans: Array<{ value: PlanId; label: string }> = [
