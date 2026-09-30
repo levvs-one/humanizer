@@ -15,7 +15,14 @@ const profile: BehaviorProfile = {
   communication: {
     naturalness: 80,
     directness: 82,
+    formality: 55,
+    humor: 0,
     verbosity: "medium"
+  },
+  reasoning: {
+    initiative: 82,
+    verification: 100,
+    uncertaintyHandling: "strict"
   },
   research: {
     rigor: 96,
@@ -38,7 +45,7 @@ describe("profile documents", () => {
       now: "2026-09-30T12:00:00.000Z"
     })
 
-    expect(document.schemaVersion).toBe(1)
+    expect(document.schemaVersion).toBe(2)
     expect(document.id).toBe("research")
     expect(document.createdAt).toBe(document.updatedAt)
   })
@@ -89,8 +96,46 @@ describe("profile documents", () => {
     expect(updated.updatedAt).toBe("2026-09-30T13:00:00.000Z")
   })
 
+  it("migrates schema v1 profiles without losing the original behavior", () => {
+    const legacy = JSON.stringify({
+      schemaVersion: 1,
+      id: "legacy",
+      name: "Legacy",
+      description: "",
+      profile: {
+        role: "Engineer",
+        objective: "Build reliable software.",
+        purpose: "engineering",
+        communication: {
+          naturalness: 80,
+          directness: 90,
+          verbosity: "low"
+        },
+        research: {
+          rigor: 80,
+          preferPrimarySources: true,
+          allowCommunitySources: true
+        },
+        writing: {
+          avoidAISlop: true,
+          avoidUnnecessaryHeadings: true,
+          avoidRestatingPrompt: true
+        }
+      },
+      createdAt: "2026-09-01T00:00:00.000Z",
+      updatedAt: "2026-09-01T00:00:00.000Z"
+    })
+
+    const migrated = parseProfileDocument(legacy)
+
+    expect(migrated.schemaVersion).toBe(2)
+    expect(migrated.profile.communication.directness).toBe(90)
+    expect(migrated.profile.communication.formality).toBe(45)
+    expect(migrated.profile.reasoning.verification).toBe(85)
+  })
+
   it("rejects malformed imports", () => {
-    expect(() => parseProfileDocument('{"schemaVersion":1}')).toThrow(
+    expect(() => parseProfileDocument('{"schemaVersion":2}')).toThrow(
       "Profile file is invalid or incomplete."
     )
   })
