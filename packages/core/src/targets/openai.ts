@@ -26,6 +26,20 @@ export const OPENAI_SURFACES = [
     }
   }),
   defineSurface({
+    id: "chatgpt-user-prompt",
+    provider: "openai",
+    product: "ChatGPT",
+    label: "Chat prompt",
+    instructionRole: "user",
+    characterLimit: { kind: "unknown" },
+    tokenLimitNote: "No verified hard character limit is stored for a ChatGPT chat prompt.",
+    source: {
+      label: "OpenAI prompt engineering guidance",
+      url: "https://help.openai.com/en/articles/10032626-prompt-engineering-best-practices-for-chatgpt",
+      verifiedAt: "2026-09-30"
+    }
+  }),
+  defineSurface({
     id: "openai-api-developer",
     provider: "openai",
     product: "OpenAI API",
@@ -36,6 +50,20 @@ export const OPENAI_SURFACES = [
     source: {
       label: "OpenAI API documentation",
       url: "https://platform.openai.com/docs/guides/text",
+      verifiedAt: "2026-09-30"
+    }
+  }),
+  defineSurface({
+    id: "openai-api-user",
+    provider: "openai",
+    product: "OpenAI API",
+    label: "User prompt",
+    instructionRole: "user",
+    characterLimit: { kind: "unknown" },
+    tokenLimitNote: "The usable budget depends on the selected model context window.",
+    source: {
+      label: "OpenAI API quickstart",
+      url: "https://platform.openai.com/docs/quickstart/make-your-first-api-request",
       verifiedAt: "2026-09-30"
     }
   })

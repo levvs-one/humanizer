@@ -1,10 +1,14 @@
-import type { BehaviorProfile } from "./types"
+import type { BehaviorProfile, PromptBrief } from "./types"
 
-export const PROMPT_IR_VERSION = 1 as const
+export const PROMPT_IR_VERSION = 2 as const
 
 export type PromptIRBlockId =
   | "role"
   | "objective"
+  | "task"
+  | "context"
+  | "output"
+  | "constraints"
   | "accuracy"
   | "research"
   | "communication"
@@ -118,7 +122,65 @@ function writingInstruction(profile: BehaviorProfile): string {
   return rules.join(" ")
 }
 
-export function buildPromptIR(profile: BehaviorProfile): PromptIR {
+function briefBlocks(brief?: PromptBrief): PromptIRBlock[] {
+  if (!brief) {
+    return []
+  }
+
+  const blocks: PromptIRBlock[] = []
+  const goal = brief.goal.trim()
+  const context = brief.context.trim()
+  const output = brief.output.trim()
+  const constraints = brief.constraints.trim()
+
+  if (goal) {
+    blocks.push({
+      id: "task",
+      heading: "Task",
+      priority: 100,
+      required: true,
+      full: goal,
+      compact: goal
+    })
+  }
+
+  if (context) {
+    blocks.push({
+      id: "context",
+      heading: "Context",
+      priority: 94,
+      required: false,
+      full: context,
+      compact: context
+    })
+  }
+
+  if (output) {
+    blocks.push({
+      id: "output",
+      heading: "Output",
+      priority: 96,
+      required: true,
+      full: output,
+      compact: output
+    })
+  }
+
+  if (constraints) {
+    blocks.push({
+      id: "constraints",
+      heading: "Constraints",
+      priority: 98,
+      required: true,
+      full: constraints,
+      compact: constraints
+    })
+  }
+
+  return blocks
+}
+
+export function buildPromptIR(profile: BehaviorProfile, brief?: PromptBrief): PromptIR {
   const role = profile.role.trim() || "Experienced professional"
   const objective =
     profile.objective.trim() || "Help the user complete the task accurately and efficiently."
@@ -148,6 +210,7 @@ export function buildPromptIR(profile: BehaviorProfile): PromptIR {
         full: objective,
         compact: objective
       },
+      ...briefBlocks(brief),
       {
         id: "accuracy",
         heading: "Accuracy",

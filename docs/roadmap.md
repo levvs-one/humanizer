@@ -2,47 +2,36 @@
 
 The roadmap is ordered by dependency, not by visual appeal.
 
-## Foundation
+## Core product
 
-- structured behavior profile
+- structured behavior profiles
+- local profile persistence
 - source-backed target registry
-- deterministic prompt compiler
+- source-backed model registry
+- deterministic Prompt IR compiler
 - character-budget optimizer
 - Humanize editor
-- Prompt Studio
-- CI and regression tests
+- model-aware Prompt Studio
+- task briefs for chat, user, system, developer, and persistent instructions
+- secure provider credential storage
 
-## Profiles
+## Next
 
-- local persistence
-- profile duplication and inheritance
-- project and provider overrides
-- import and export
-- schema migrations
-
-## Evaluation
-
-- baseline versus compiled comparison
-- instruction-compliance checks
-- repetition and structure diagnostics
-- source-quality diagnostics
-- regression corpus
-
-## Providers
-
-- provider credentials in OS keychain
-- OpenAI adapter
-- Anthropic adapter
-- Gemini adapter
-- model metadata and token counting where supported
-
-## Integrations
-
+- model-specific compiler refinements
+- token counting through provider-native or verified tokenizers
+- profile inheritance and project overrides
+- prompt draft persistence and export formats
+- provider execution adapters
 - MCP server
 - CLI
-- editor and agent integrations
-- optional signed registry updates
 
 ## Later
 
-Cloud sync, shared profiles, and a web application are intentionally later. They should not complicate the compiler or local desktop product before the core behavior model proves itself.
+- Test and comparison workspace
+- evaluation corpus and regression diagnostics
+- optional signed registry updates
+- optional cloud sync
+- shared profiles
+- web application
+
+The Test navigation item stays disabled until the core generation and provider workflows are complete. Humanizer should not expose a screen that looks finished before the underlying workflow is real.

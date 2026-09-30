@@ -23,19 +23,30 @@ export type CharacterLimit =
   | { kind: "by-plan"; values: Partial<Record<PlanId, number>> }
   | { kind: "unknown" }
 
+export interface SourceReference {
+  label: string
+  url: string
+  verifiedAt: string
+}
+
 export interface PromptSurface {
   id: string
   provider: ProviderId
   product: string
   label: string
-  instructionRole: "persistent" | "developer" | "system"
+  instructionRole: "persistent" | "developer" | "system" | "user"
   characterLimit: CharacterLimit
   tokenLimitNote?: string
-  source: {
-    label: string
-    url: string
-    verifiedAt: string
-  }
+  source: SourceReference
+}
+
+export interface ModelDefinition {
+  id: string
+  provider: ProviderId
+  label: string
+  contextWindowTokens: number | null
+  maxOutputTokens: number | null
+  source: SourceReference
 }
 
 export interface BehaviorProfile {
@@ -59,14 +70,23 @@ export interface BehaviorProfile {
   }
 }
 
+export interface PromptBrief {
+  goal: string
+  context: string
+  output: string
+  constraints: string
+}
+
 export interface PromptTarget {
   surfaceId: string
   plan?: PlanId
+  modelId?: string
 }
 
 export interface CompileRequest {
   profile: BehaviorProfile
   target: PromptTarget
+  brief?: PromptBrief
 }
 
 export type CompileStatus = "fits" | "overflow" | "no-verified-limit"
@@ -80,4 +100,5 @@ export interface CompileResult {
   omittedBlocks: string[]
   warnings: string[]
   surface: PromptSurface
+  model: ModelDefinition | null
 }
