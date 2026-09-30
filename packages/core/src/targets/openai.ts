@@ -26,6 +26,20 @@ export const OPENAI_SURFACES = [
     }
   }),
   defineSurface({
+    id: "chatgpt-project-instructions",
+    provider: "openai",
+    product: "ChatGPT",
+    label: "Project Instructions",
+    instructionRole: "persistent",
+    characterLimit: { kind: "unknown" },
+    tokenLimitNote: "OpenAI documents project instructions but does not publish a verified hard character limit here.",
+    source: {
+      label: "OpenAI Help Center",
+      url: "https://help.openai.com/en/articles/10169521-projects-in-chatgpt",
+      verifiedAt: "2026-09-30"
+    }
+  }),
+  defineSurface({
     id: "chatgpt-user-prompt",
     provider: "openai",
     product: "ChatGPT",
