@@ -2,6 +2,34 @@ import { defineSurface } from "./define"
 
 export const GOOGLE_SURFACES = [
   defineSurface({
+    id: "gemini-gem-instructions",
+    provider: "google",
+    product: "Gemini",
+    label: "Gem Instructions",
+    instructionRole: "persistent",
+    characterLimit: { kind: "unknown" },
+    tokenLimitNote: "Google documents Gem instructions but does not publish a verified hard character limit here.",
+    source: {
+      label: "Gemini Apps Help",
+      url: "https://support.google.com/gemini/answer/15235603",
+      verifiedAt: "2026-09-30"
+    }
+  }),
+  defineSurface({
+    id: "gemini-personal-instructions",
+    provider: "google",
+    product: "Gemini",
+    label: "Personal Instructions",
+    instructionRole: "persistent",
+    characterLimit: { kind: "unknown" },
+    tokenLimitNote: "Google documents persistent Gemini instructions but does not publish a verified hard character limit here.",
+    source: {
+      label: "Gemini Apps Help",
+      url: "https://support.google.com/gemini/answer/16598625",
+      verifiedAt: "2026-09-30"
+    }
+  }),
+  defineSurface({
     id: "gemini-api-system",
     provider: "google",
     product: "Gemini API",
