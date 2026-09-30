@@ -64,7 +64,7 @@ fn entry(provider: &str) -> Result<Entry, String> {
     Entry::new(SERVICE, provider).map_err(|error| error.to_string())
 }
 
-fn read_secret(provider: &str) -> Result<String, String> {
+pub(crate) fn read_secret(provider: &str) -> Result<String, String> {
     match entry(provider)?.get_password() {
         Ok(secret) if !secret.trim().is_empty() => Ok(secret),
         Ok(_) | Err(KeyringError::NoEntry) => Err("No stored API key for this provider.".to_string()),
