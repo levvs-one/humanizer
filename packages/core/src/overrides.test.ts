@@ -70,6 +70,8 @@ describe("behavior overrides", () => {
     ).toBe(true)
 
     expect(isBehaviorOverrideSet({ "communication.verbosity": "extreme" })).toBe(false)
+    expect(isBehaviorOverrideSet({ "communication.directness": 101 })).toBe(false)
+    expect(isBehaviorOverrideSet({ "communication.directness": -1 })).toBe(false)
     expect(isBehaviorOverrideSet({ unknown: true })).toBe(false)
   })
 
