@@ -114,7 +114,7 @@ function HumanizeView({
   profile: BehaviorProfile
   setProfile: (profile: BehaviorProfile) => void
   openStudio: () => void
-  inheritanceLabel?: string
+  inheritanceLabel?: string | undefined
 }) {
   return (
     <main className="page">
