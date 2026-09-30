@@ -159,9 +159,12 @@ export default function PromptStudioView({
     surfaceId: string
     response: ExecutePromptResponse
   } | null>(null)
+  const [initialConversationStore] = useState(() => loadConversationSessions())
   const [conversationSessions, setConversationSessions] = useState<
     ConversationSession[]
-  >(() => loadConversationSessions())
+  >(() => initialConversationStore.sessions)
+  const [conversationStorageAvailable, setConversationStorageAvailable] =
+    useState(initialConversationStore.storageAvailable)
 
   const draft = drafts.find((entry) => entry.id === activeDraftId) ?? drafts[0]
 
@@ -176,8 +179,14 @@ export default function PromptStudioView({
   }, [draft?.id])
 
   useEffect(() => {
-    saveConversationSessions(conversationSessions)
-  }, [conversationSessions])
+    if (!conversationStorageAvailable) {
+      return
+    }
+
+    if (!saveConversationSessions(conversationSessions)) {
+      setConversationStorageAvailable(false)
+    }
+  }, [conversationSessions, conversationStorageAvailable])
 
   if (!draft) {
     return null
@@ -1107,8 +1116,13 @@ export default function PromptStudioView({
                 <span>
                   {supportsConversation
                     ? conversationHistory.length > 0
-                      ? conversationHistory.length / 2 + " turns saved locally."
-                      : "Conversation history is saved locally on this device."
+                      ? conversationHistory.length / 2 +
+                        (conversationStorageAvailable
+                          ? " turns saved locally."
+                          : " turns in memory only.")
+                      : conversationStorageAvailable
+                        ? "Conversation history is saved locally on this device."
+                        : "Local storage is unavailable; conversation history stays in memory."
                     : "Responses are not saved."}
                 </span>
               </div>
