@@ -137,7 +137,7 @@ export default function PromptStudioView({ profile }: { profile: BehaviorProfile
                 <select value={surface.id} onChange={(event) => setSurfaceId(event.target.value)}>
                   {surfaces.map((entry) => (
                     <option key={entry.id} value={entry.id}>
-                      {entry.product} — {entry.label}
+                      {entry.product} {entry.label}
                     </option>
                   ))}
                 </select>
