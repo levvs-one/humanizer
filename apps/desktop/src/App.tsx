@@ -3,7 +3,8 @@ import {
   updateProfileDocument,
   type BehaviorProfile,
   type ProfileDocument,
-  type PromptPurpose
+  type PromptPurpose,
+  type UncertaintyHandling
 } from "@humanizer/core"
 import { createSeedProfiles, DEFAULT_BEHAVIOR } from "./defaults"
 import ProfilesView from "./ProfilesView"
@@ -230,6 +231,78 @@ function HumanizeView({
               <option value="high">Detailed</option>
             </select>
           </div>
+
+          <details className="advanced-behavior">
+            <summary>Advanced behavior</summary>
+
+            <div className="advanced-behavior-content">
+              <div className="range-stack">
+                <RangeField
+                  label="Formality"
+                  value={profile.communication.formality}
+                  onChange={(value) =>
+                    setProfile({
+                      ...profile,
+                      communication: { ...profile.communication, formality: value }
+                    })
+                  }
+                />
+                <RangeField
+                  label="Humor"
+                  value={profile.communication.humor}
+                  onChange={(value) =>
+                    setProfile({
+                      ...profile,
+                      communication: { ...profile.communication, humor: value }
+                    })
+                  }
+                />
+                <RangeField
+                  label="Initiative"
+                  value={profile.reasoning.initiative}
+                  onChange={(value) =>
+                    setProfile({
+                      ...profile,
+                      reasoning: { ...profile.reasoning, initiative: value }
+                    })
+                  }
+                />
+                <RangeField
+                  label="Verification"
+                  value={profile.reasoning.verification}
+                  onChange={(value) =>
+                    setProfile({
+                      ...profile,
+                      reasoning: { ...profile.reasoning, verification: value }
+                    })
+                  }
+                />
+              </div>
+
+              <div className="field compact-field">
+                <FieldLabel
+                  title="Uncertainty"
+                  hint="How the model should react when the answer is not fully known"
+                />
+                <select
+                  value={profile.reasoning.uncertaintyHandling}
+                  onChange={(event) =>
+                    setProfile({
+                      ...profile,
+                      reasoning: {
+                        ...profile.reasoning,
+                        uncertaintyHandling: event.target.value as UncertaintyHandling
+                      }
+                    })
+                  }
+                >
+                  <option value="quiet">Quiet</option>
+                  <option value="explicit">Explicit</option>
+                  <option value="strict">Strict</option>
+                </select>
+              </div>
+            </div>
+          </details>
         </section>
 
         <section className="panel">
