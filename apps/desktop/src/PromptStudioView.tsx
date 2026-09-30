@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import {
-  applyBehaviorOverrides,
+  applyBehaviorOverrideLayers,
   buildTargetExport,
   compilePrompt,
+  createProjectDocument,
   createPromptDraftDocument,
   duplicatePromptDraftDocument,
   MODELS,
@@ -13,6 +14,7 @@ import {
   type BehaviorOverrideValue,
   type PlanId,
   type ProfileDocument,
+  type ProjectDocument,
   type PromptBrief,
   type PromptDiagnostic,
   type PromptDraftDocument,
@@ -36,6 +38,11 @@ import {
   saveActivePromptDraftId,
   savePromptDrafts
 } from "./prompt-draft-storage"
+import ProjectScopePanel from "./ProjectScopePanel"
+import {
+  loadProjects,
+  saveProjects
+} from "./project-storage"
 import {
   cancelProviderStream,
   countProviderTokens,
@@ -141,6 +148,7 @@ export default function PromptStudioView({
     const stored = loadActivePromptDraftId()
     return stored ?? drafts[0]?.id ?? ""
   })
+  const [projects, setProjects] = useState<ProjectDocument[]>(() => loadProjects())
   const [copied, setCopied] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [runInputs, setRunInputs] = useState<Record<string, string>>({})
@@ -177,6 +185,10 @@ export default function PromptStudioView({
       saveActivePromptDraftId(draft.id)
     }
   }, [draft?.id])
+
+  useEffect(() => {
+    saveProjects(projects)
+  }, [projects])
 
   useEffect(() => {
     if (!conversationStorageAvailable) {
@@ -219,10 +231,18 @@ export default function PromptStudioView({
   }
 
   const activeProfile = profile
-  const effectiveProfile = applyBehaviorOverrides(
+  const activeProject =
+    activeDraft.projectId === null
+      ? null
+      : projects.find((project) => project.id === activeDraft.projectId) ?? null
+  const effectiveProfile = applyBehaviorOverrideLayers(
     activeProfile.profile,
-    activeDraft.behaviorOverrides
+    [
+      activeProject?.behaviorOverrides ?? {},
+      activeDraft.behaviorOverrides
+    ]
   )
+  const projectOverrideCount = Object.keys(activeProject?.behaviorOverrides ?? {}).length
   const overrideCount = Object.keys(activeDraft.behaviorOverrides).length
   const activeSurface = surface
   const needsPlan = activeSurface.characterLimit.kind === "by-plan"
@@ -296,11 +316,38 @@ export default function PromptStudioView({
     changes: Partial<
       Pick<
         PromptDraftDocument,
-        "name" | "profileId" | "behaviorOverrides" | "target" | "brief"
+        "name" | "profileId" | "projectId" | "behaviorOverrides" | "target" | "brief"
       >
     >
   ) {
     replaceDraft(updatePromptDraftDocument(activeDraft, changes))
+  }
+
+  function createProject() {
+    const project = createProjectDocument({
+      name: "Untitled Project",
+      description: "",
+      behaviorOverrides: {}
+    })
+    setProjects((current) => [...current, project])
+    patchDraft({ projectId: project.id })
+  }
+
+  function updateProject(project: ProjectDocument) {
+    setProjects((current) =>
+      current.map((entry) => (entry.id === project.id ? project : entry))
+    )
+  }
+
+  function deleteProject(projectId: string) {
+    setProjects((current) => current.filter((project) => project.id !== projectId))
+    setDrafts((current) =>
+      current.map((entry) =>
+        entry.projectId === projectId
+          ? updatePromptDraftDocument(entry, { projectId: null })
+          : entry
+      )
+    )
   }
 
   function setBehaviorOverride(
@@ -419,16 +466,22 @@ export default function PromptStudioView({
       const profileId = profiles.some((entry) => entry.id === imported.profileId)
         ? imported.profileId
         : defaultProfileId
+      const projectId =
+        imported.projectId !== null &&
+        projects.some((project) => project.id === imported.projectId)
+          ? imported.projectId
+          : null
       const collision = drafts.some((entry) => entry.id === imported.id)
       const next = collision
         ? createPromptDraftDocument({
             name: imported.name,
             profileId,
+            projectId,
             behaviorOverrides: imported.behaviorOverrides,
             target: imported.target,
             brief: imported.brief
           })
-        : updatePromptDraftDocument(imported, { profileId })
+        : updatePromptDraftDocument(imported, { profileId, projectId })
 
       setDrafts((current) => [...current, next])
       setActiveDraftId(next.id)
