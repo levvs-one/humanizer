@@ -141,10 +141,14 @@ export default function PromptStudioView({
   defaultProfileId: string
 }) {
   const fileInput = useRef<HTMLInputElement>(null)
-  const [drafts, setDrafts] = useState<PromptDraftDocument[]>(() => {
-    const stored = loadPromptDrafts()
-    return stored.length > 0 ? stored : [createDefaultDraft(defaultProfileId)]
-  })
+  const [initialDraftStore] = useState(() => loadPromptDrafts())
+  const [drafts, setDrafts] = useState<PromptDraftDocument[]>(() =>
+    initialDraftStore.drafts.length > 0
+      ? initialDraftStore.drafts
+      : [createDefaultDraft(defaultProfileId)]
+  )
+  const [draftStorageAvailable, setDraftStorageAvailable] =
+    useState(initialDraftStore.storageAvailable)
   const [activeDraftId, setActiveDraftId] = useState(() => {
     const stored = loadActivePromptDraftId()
     return stored ?? drafts[0]?.id ?? ""
@@ -183,14 +187,24 @@ export default function PromptStudioView({
   const draft = drafts.find((entry) => entry.id === activeDraftId) ?? drafts[0]
 
   useEffect(() => {
-    savePromptDrafts(drafts)
-  }, [drafts])
+    if (!draftStorageAvailable) {
+      return
+    }
+
+    if (!savePromptDrafts(drafts)) {
+      setDraftStorageAvailable(false)
+    }
+  }, [drafts, draftStorageAvailable])
 
   useEffect(() => {
-    if (draft?.id) {
-      saveActivePromptDraftId(draft.id)
+    if (!draftStorageAvailable || !draft?.id) {
+      return
     }
-  }, [draft?.id])
+
+    if (!saveActivePromptDraftId(draft.id)) {
+      setDraftStorageAvailable(false)
+    }
+  }, [draft?.id, draftStorageAvailable])
 
   useEffect(() => {
     if (!projectStorageAvailable) {
@@ -763,7 +777,9 @@ export default function PromptStudioView({
             Choose a model and prompt type, describe the job, and compile it with a behavior profile.
           </p>
         </div>
-        <span className="local-save-note">Saved locally</span>
+        <span className="local-save-note">
+          {draftStorageAvailable ? "Saved locally" : "In memory only"}
+        </span>
       </header>
 
       <section className="draft-toolbar" aria-label="Prompt drafts">
