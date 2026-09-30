@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import {
+  buildTargetExport,
   compilePrompt,
   createPromptDraftDocument,
   duplicatePromptDraftDocument,
@@ -173,6 +174,7 @@ export default function PromptStudioView({
       optimization
     }
   })
+  const targetExport = buildTargetExport(result)
 
   function replaceDraft(next: PromptDraftDocument) {
     setDrafts((current) =>
@@ -536,9 +538,9 @@ export default function PromptStudioView({
               <button
                 className="secondary-button"
                 type="button"
-                onClick={() => downloadCompiledPrompt(activeDraft.name, result.text)}
+                onClick={() => downloadCompiledPrompt(activeDraft.name, targetExport)}
               >
-                Export
+                {targetExport.format === "json" ? "Export JSON" : "Export text"}
               </button>
               <button className="secondary-button" type="button" onClick={copyPrompt}>
                 {copied ? "Copied" : "Copy"}
