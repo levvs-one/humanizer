@@ -17,6 +17,7 @@ import {
   type PromptPurpose,
   type ProviderId
 } from "@humanizer/core"
+import { countPromptTokens, type PromptTokenCount } from "./provider-runtime"
 import {
   downloadCompiledPrompt,
   downloadPromptDraft,
@@ -116,6 +117,10 @@ export default function PromptStudioView({
   })
   const [copied, setCopied] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [tokenCount, setTokenCount] = useState<PromptTokenCount | null>(null)
+  const [tokenCountSignature, setTokenCountSignature] = useState("")
+  const [tokenCountBusy, setTokenCountBusy] = useState(false)
+  const [tokenCountError, setTokenCountError] = useState<string | null>(null)
 
   const draft = drafts.find((entry) => entry.id === activeDraftId) ?? drafts[0]
 
@@ -176,6 +181,13 @@ export default function PromptStudioView({
     }
   })
   const targetExport = buildTargetExport(result)
+  const tokenCountSupported =
+    activeSurface.product.endsWith("API") &&
+    activeModel.tokenCounting === "provider-api"
+  const currentTokenSignature =
+    activeModel.id + "\n" + activeSurface.id + "\n" + result.text
+  const visibleTokenCount =
+    tokenCountSignature === currentTokenSignature ? tokenCount : null
 
   function replaceDraft(next: PromptDraftDocument) {
     setDrafts((current) =>
@@ -314,6 +326,31 @@ export default function PromptStudioView({
     await navigator.clipboard.writeText(result.text)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1200)
+  }
+
+  async function countTokens() {
+    if (!tokenCountSupported) return
+
+    setTokenCountBusy(true)
+    setTokenCountError(null)
+
+    try {
+      const count = await countPromptTokens(
+        activeModel.provider,
+        activeModel.id,
+        result.text
+      )
+      setTokenCount(count)
+      setTokenCountSignature(currentTokenSignature)
+    } catch (reason) {
+      setTokenCount(null)
+      setTokenCountSignature("")
+      setTokenCountError(
+        reason instanceof Error ? reason.message : String(reason)
+      )
+    } finally {
+      setTokenCountBusy(false)
+    }
   }
 
   const status =
@@ -595,6 +632,36 @@ export default function PromptStudioView({
             </span>
             {result.compactedBlocks.length ? <span>{result.compactedBlocks.length} compacted</span> : null}
           </div>
+
+          {activeSurface.product.endsWith("API") ? (
+            <div className="token-count-row">
+              <div>
+                <span>Input tokens</span>
+                <strong>
+                  {visibleTokenCount
+                    ? visibleTokenCount.totalTokens.toLocaleString()
+                    : tokenCountSupported
+                      ? "Not counted"
+                      : "Preflight count unavailable"}
+                </strong>
+              </div>
+
+              {tokenCountSupported ? (
+                <button
+                  className="plain-button"
+                  type="button"
+                  disabled={tokenCountBusy}
+                  onClick={() => void countTokens()}
+                >
+                  {tokenCountBusy ? "Counting" : visibleTokenCount ? "Recount" : "Count tokens"}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {tokenCountError ? (
+            <p className="token-count-error">{tokenCountError}</p>
+          ) : null}
 
           <pre className="prompt-output">{result.text}</pre>
 
