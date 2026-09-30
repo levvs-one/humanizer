@@ -18,6 +18,7 @@ export type PromptPurpose =
 
 export type Verbosity = "low" | "medium" | "high"
 export type UncertaintyHandling = "quiet" | "explicit" | "strict"
+export type ToolUsePolicy = "off" | "when-useful" | "proactive"
 
 export type CharacterLimit =
   | { kind: "fixed"; value: number }
@@ -71,6 +72,11 @@ export interface BehaviorProfile {
     rigor: number
     preferPrimarySources: boolean
     allowCommunitySources: boolean
+  }
+  tools: {
+    usage: ToolUsePolicy
+    confirmExternalActions: boolean
+    preferReadOnly: boolean
   }
   writing: {
     avoidAISlop: boolean

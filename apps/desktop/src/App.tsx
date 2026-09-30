@@ -7,6 +7,7 @@ import {
   type BehaviorProfile,
   type ProfileDocument,
   type PromptPurpose,
+  type ToolUsePolicy,
   type UncertaintyHandling
 } from "@humanizer/core"
 import { createSeedProfiles, DEFAULT_BEHAVIOR } from "./defaults"
@@ -332,6 +333,58 @@ function HumanizeView({
               </div>
             </div>
           </details>
+        </section>
+
+        <section className="panel">
+          <div className="panel-heading">
+            <h2>Tools and actions</h2>
+            <p>Control when tools are used and how external side effects are handled.</p>
+          </div>
+
+          <div className="field compact-field">
+            <FieldLabel title="Tool use" />
+            <select
+              value={profile.tools.usage}
+              onChange={(event) =>
+                setProfile({
+                  ...profile,
+                  tools: {
+                    ...profile.tools,
+                    usage: event.target.value as ToolUsePolicy
+                  }
+                })
+              }
+            >
+              <option value="off">Off</option>
+              <option value="when-useful">When useful</option>
+              <option value="proactive">Proactive</option>
+            </select>
+          </div>
+
+          <div className="toggle-list">
+            <ToggleRow
+              label="Confirm external actions"
+              description="Ask before destructive, financial, publishing, or other consequential side effects."
+              checked={profile.tools.confirmExternalActions}
+              onChange={(checked) =>
+                setProfile({
+                  ...profile,
+                  tools: { ...profile.tools, confirmExternalActions: checked }
+                })
+              }
+            />
+            <ToggleRow
+              label="Prefer read-only first"
+              description="Inspect and gather context before changing external state."
+              checked={profile.tools.preferReadOnly}
+              onChange={(checked) =>
+                setProfile({
+                  ...profile,
+                  tools: { ...profile.tools, preferReadOnly: checked }
+                })
+              }
+            />
+          </div>
         </section>
 
         <section className="panel">
