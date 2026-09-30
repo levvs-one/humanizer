@@ -13,15 +13,20 @@ The roadmap is ordered by dependency, not by visual appeal.
 - Humanize editor
 - model-aware Prompt Studio
 - task briefs for chat, user, system, developer, and persistent instructions
+- persistent prompt drafts with import and export
+- target-aware text and API-fragment exports
+- deterministic Prompt Inspector
 - secure provider credential storage
+- credential verification
+- native OpenAI, Anthropic, and Gemini execution adapters
+- exact provider token preflight where a supported counting endpoint exists
 
 ## Next
 
+- profile inheritance and project or model overrides
 - model-specific compiler refinements
-- token counting through provider-native or verified tokenizers
-- profile inheritance and project overrides
-- prompt draft persistence and export formats
-- provider execution adapters
+- streaming and cancellation for provider execution
+- reusable conversation runtime
 - MCP server
 - CLI
 
@@ -34,4 +39,4 @@ The roadmap is ordered by dependency, not by visual appeal.
 - shared profiles
 - web application
 
-The Test navigation item stays disabled until the core generation and provider workflows are complete. Humanizer should not expose a screen that looks finished before the underlying workflow is real.
+The Test navigation item stays disabled until the core generation and runtime workflows are complete. Humanizer should not expose a screen that looks finished before the underlying workflow is real.
