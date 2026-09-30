@@ -6,7 +6,7 @@ use std::time::Duration;
 use crate::credentials::read_secret;
 
 const ANTHROPIC_VERSION: &str = "2023-06-01";
-const ANTHROPIC_MAX_TOKENS: u32 = 4096;
+const ANTHROPIC_MAX_TOKENS: u32 = 16_000;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
