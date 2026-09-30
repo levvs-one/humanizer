@@ -65,11 +65,11 @@ export const MODELS: readonly ModelDefinition[] = [
     id: "gemini-3.8-flash",
     provider: "google",
     label: "Gemini 3.8 Flash",
-    contextWindowTokens: null,
-    maxOutputTokens: null,
+    contextWindowTokens: 1_048_576,
+    maxOutputTokens: 65_536,
     source: {
-      label: "Gemini model documentation",
-      url: "https://ai.google.dev/gemini-api/docs/models",
+      label: "Gemini 3.8 Flash documentation",
+      url: "https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash",
       verifiedAt: "2026-09-30"
     }
   },
