@@ -52,11 +52,16 @@ export {
   PROJECT_SCHEMA_VERSION,
   createProjectDocument,
   duplicateProjectDocument,
+  getProjectModelOverrides,
   parseProjectDocument,
   serializeProjectDocument,
   updateProjectDocument
 } from "./project"
-export type { CreateProjectInput, ProjectDocument } from "./project"
+export type {
+  CreateProjectInput,
+  ModelBehaviorOverrideMap,
+  ProjectDocument
+} from "./project"
 export {
   PROMPT_IR_VERSION,
   buildPromptIR
