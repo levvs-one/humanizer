@@ -11,6 +11,14 @@ export { compilePrompt } from "./compiler"
 export { buildTargetExport } from "./exporter"
 export type { TargetExportArtifact, TargetExportFormat } from "./exporter"
 export { inspectPrompt } from "./inspector"
+export {
+  applyBehaviorOverrideLayers,
+  applyBehaviorOverrides,
+  countBehaviorOverrides,
+  isBehaviorOverrideSet,
+  isBehaviorOverrideValue
+} from "./overrides"
+export type { BehaviorOverrideSet, BehaviorOverrideValue } from "./overrides"
 export type { PromptInspectionContext } from "./inspector"
 export {
   MODELS,
