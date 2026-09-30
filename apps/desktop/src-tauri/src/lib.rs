@@ -9,7 +9,8 @@ pub fn run() {
             credentials::delete_provider_api_key,
             credentials::provider_credential_status,
             credentials::verify_provider_api_key,
-            runtime::execute_provider_prompt
+            runtime::execute_provider_prompt,
+            runtime::count_provider_tokens
         ])
         .run(tauri::generate_context!())
         .expect("error while running Humanizer");
