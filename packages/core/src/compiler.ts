@@ -1,65 +1,9 @@
+import { orderPromptBlocks, renderPromptBlock } from "./dialects"
 import { inspectPrompt } from "./inspector"
 import { getModel } from "./models"
 import { buildPromptIR, type PromptIRBlock } from "./prompt-ir"
 import { getSurface, resolveCharacterLimit } from "./registry"
 import type { CompileRequest, CompileResult, PromptSurface } from "./types"
-
-function indexFor(order: readonly string[], id: string): number {
-  const index = order.indexOf(id)
-  return index === -1 ? order.length : index
-}
-
-function orderBlocks(blocks: PromptIRBlock[], surface: PromptSurface): PromptIRBlock[] {
-  const userOrder = [
-    "task",
-    "context",
-    "output",
-    "constraints",
-    "role",
-    "objective",
-    "strategy",
-    "accuracy",
-    "research",
-    "workflow",
-    "communication",
-    "writing"
-  ] as const
-
-  const instructionOrder = [
-    "role",
-    "objective",
-    "strategy",
-    "task",
-    "context",
-    "output",
-    "constraints",
-    "accuracy",
-    "research",
-    "workflow",
-    "communication",
-    "writing"
-  ] as const
-
-  const order = surface.instructionRole === "user" ? userOrder : instructionOrder
-
-  return [...blocks].sort(
-    (a, b) => indexFor(order, a.id) - indexFor(order, b.id)
-  )
-}
-
-function renderBlock(
-  block: PromptIRBlock,
-  variant: "full" | "compact",
-  surface: PromptSurface
-): string {
-  const content = variant === "compact" ? block.compact : block.full
-
-  if (surface.provider === "anthropic") {
-    return "<" + block.id + ">\n" + content + "\n</" + block.id + ">"
-  }
-
-  return block.heading + "\n" + content
-}
 
 function render(
   blocks: PromptIRBlock[],
@@ -69,7 +13,7 @@ function render(
 ): string {
   return blocks
     .filter((block) => !omitted.has(block.id))
-    .map((block) => renderBlock(block, variants.get(block.id) ?? "full", surface))
+    .map((block) => renderPromptBlock(block, variants.get(block.id) ?? "full", surface))
     .join("\n\n")
     .trim()
 }
@@ -79,7 +23,7 @@ export function compilePrompt(request: CompileRequest): CompileResult {
   const model = request.target.modelId ? getModel(request.target.modelId) : null
   const limit = resolveCharacterLimit(surface, request.target.plan)
   const ir = buildPromptIR(request.profile, request.brief)
-  const blocks = orderBlocks(ir.blocks, surface)
+  const blocks = orderPromptBlocks(ir.blocks, surface)
   const optimization = request.target.optimization ?? "balanced"
   const variants = new Map<string, "full" | "compact">(
     blocks.map((block) => [
