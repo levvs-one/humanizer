@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import {
-  applyBehaviorOverrides,
+  applyBehaviorOverrideLayers,
   buildTargetExport,
   compilePrompt,
+  createProjectDocument,
   createPromptDraftDocument,
   duplicatePromptDraftDocument,
   MODELS,
@@ -13,6 +14,7 @@ import {
   type BehaviorOverrideValue,
   type PlanId,
   type ProfileDocument,
+  type ProjectDocument,
   type PromptBrief,
   type PromptDiagnostic,
   type PromptDraftDocument,
@@ -36,6 +38,11 @@ import {
   saveActivePromptDraftId,
   savePromptDrafts
 } from "./prompt-draft-storage"
+import ProjectScopePanel from "./ProjectScopePanel"
+import {
+  loadProjects,
+  saveProjects
+} from "./project-storage"
 import {
   cancelProviderStream,
   countProviderTokens,
@@ -141,6 +148,12 @@ export default function PromptStudioView({
     const stored = loadActivePromptDraftId()
     return stored ?? drafts[0]?.id ?? ""
   })
+  const [initialProjectStore] = useState(() => loadProjects())
+  const [projects, setProjects] = useState<ProjectDocument[]>(
+    () => initialProjectStore.projects
+  )
+  const [projectStorageAvailable, setProjectStorageAvailable] =
+    useState(initialProjectStore.storageAvailable)
   const [copied, setCopied] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [runInputs, setRunInputs] = useState<Record<string, string>>({})
@@ -177,6 +190,16 @@ export default function PromptStudioView({
       saveActivePromptDraftId(draft.id)
     }
   }, [draft?.id])
+
+  useEffect(() => {
+    if (!projectStorageAvailable) {
+      return
+    }
+
+    if (!saveProjects(projects)) {
+      setProjectStorageAvailable(false)
+    }
+  }, [projects, projectStorageAvailable])
 
   useEffect(() => {
     if (!conversationStorageAvailable) {
@@ -219,9 +242,17 @@ export default function PromptStudioView({
   }
 
   const activeProfile = profile
-  const effectiveProfile = applyBehaviorOverrides(
+  const activeProject =
+    activeDraft.projectId === null
+      ? null
+      : projects.find((project) => project.id === activeDraft.projectId) ?? null
+  const projectProfile = applyBehaviorOverrideLayers(
     activeProfile.profile,
-    activeDraft.behaviorOverrides
+    [activeProject?.behaviorOverrides ?? {}]
+  )
+  const effectiveProfile = applyBehaviorOverrideLayers(
+    projectProfile,
+    [activeDraft.behaviorOverrides]
   )
   const overrideCount = Object.keys(activeDraft.behaviorOverrides).length
   const activeSurface = surface
@@ -296,11 +327,51 @@ export default function PromptStudioView({
     changes: Partial<
       Pick<
         PromptDraftDocument,
-        "name" | "profileId" | "behaviorOverrides" | "target" | "brief"
+        "name" | "profileId" | "projectId" | "behaviorOverrides" | "target" | "brief"
       >
     >
   ) {
     replaceDraft(updatePromptDraftDocument(activeDraft, changes))
+  }
+
+  function createProject() {
+    const project = createProjectDocument({
+      name: "Untitled Project",
+      description: "",
+      behaviorOverrides: {}
+    })
+    setProjects((current) => [...current, project])
+    patchDraft({ projectId: project.id })
+  }
+
+  function updateProject(project: ProjectDocument) {
+    setProjects((current) =>
+      current.map((entry) => (entry.id === project.id ? project : entry))
+    )
+  }
+
+  function importProject(project: ProjectDocument) {
+    const next = projects.some((entry) => entry.id === project.id)
+      ? createProjectDocument({
+          name: project.name,
+          description: project.description,
+          behaviorOverrides: project.behaviorOverrides
+        })
+      : project
+
+    setProjects((current) => [...current, next])
+    patchDraft({ projectId: next.id })
+  }
+
+  function deleteProject(projectId: string) {
+    setProjects((current) => current.filter((project) => project.id !== projectId))
+    setDrafts((current) =>
+      current.map((entry) =>
+        entry.projectId === projectId
+          ? updatePromptDraftDocument(entry, { projectId: null })
+          : entry
+      )
+    )
   }
 
   function setBehaviorOverride(
@@ -321,6 +392,19 @@ export default function PromptStudioView({
   function numericBehaviorOverride(path: BehaviorFieldPath): string {
     const value = activeDraft.behaviorOverrides[path]
     return typeof value === "number" ? String(value) : ""
+  }
+
+  function scoreBehaviorOverride(value: string): number | undefined {
+    if (value === "") {
+      return undefined
+    }
+
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed)) {
+      return undefined
+    }
+
+    return Math.max(0, Math.min(100, parsed))
   }
 
   function chooseModel(nextId: string) {
@@ -419,16 +503,22 @@ export default function PromptStudioView({
       const profileId = profiles.some((entry) => entry.id === imported.profileId)
         ? imported.profileId
         : defaultProfileId
+      const projectId =
+        imported.projectId !== null &&
+        projects.some((project) => project.id === imported.projectId)
+          ? imported.projectId
+          : null
       const collision = drafts.some((entry) => entry.id === imported.id)
       const next = collision
         ? createPromptDraftDocument({
             name: imported.name,
             profileId,
+            projectId,
             behaviorOverrides: imported.behaviorOverrides,
             target: imported.target,
             brief: imported.brief
           })
-        : updatePromptDraftDocument(imported, { profileId })
+        : updatePromptDraftDocument(imported, { profileId, projectId })
 
       setDrafts((current) => [...current, next])
       setActiveDraftId(next.id)
@@ -872,6 +962,18 @@ export default function PromptStudioView({
             </div>
           </section>
 
+          <ProjectScopePanel
+            projects={projects}
+            activeProject={activeProject}
+            baseProfile={activeProfile.profile}
+            storageAvailable={projectStorageAvailable}
+            onSelect={(projectId) => patchDraft({ projectId })}
+            onCreate={createProject}
+            onImport={importProject}
+            onUpdate={updateProject}
+            onDelete={deleteProject}
+          />
+
           <section className="panel compact-summary-panel">
             <div className="panel-heading">
               <h2>Behavior profile</h2>
@@ -913,7 +1015,7 @@ export default function PromptStudioView({
                         ? activeDraft.behaviorOverrides.role
                         : ""
                     }
-                    placeholder={activeProfile.profile.role}
+                    placeholder={projectProfile.role}
                     onChange={(event) =>
                       setBehaviorOverride(
                         "role",
@@ -935,7 +1037,7 @@ export default function PromptStudioView({
                         ? activeDraft.behaviorOverrides.objective
                         : ""
                     }
-                    placeholder={activeProfile.profile.objective}
+                    placeholder={projectProfile.objective}
                     onChange={(event) =>
                       setBehaviorOverride(
                         "objective",
@@ -961,7 +1063,7 @@ export default function PromptStudioView({
                         )
                       }
                     >
-                      <option value="">Profile default ({activeProfile.profile.communication.verbosity})</option>
+                      <option value="">Inherited ({projectProfile.communication.verbosity})</option>
                       <option value="low">Compact</option>
                       <option value="medium">Balanced</option>
                       <option value="high">Detailed</option>
@@ -975,11 +1077,11 @@ export default function PromptStudioView({
                       min="0"
                       max="100"
                       value={numericBehaviorOverride("communication.directness")}
-                      placeholder={String(activeProfile.profile.communication.directness)}
+                      placeholder={String(projectProfile.communication.directness)}
                       onChange={(event) =>
                         setBehaviorOverride(
                           "communication.directness",
-                          event.target.value === "" ? undefined : Number(event.target.value)
+                          scoreBehaviorOverride(event.target.value)
                         )
                       }
                     />
@@ -994,11 +1096,11 @@ export default function PromptStudioView({
                       min="0"
                       max="100"
                       value={numericBehaviorOverride("reasoning.initiative")}
-                      placeholder={String(activeProfile.profile.reasoning.initiative)}
+                      placeholder={String(projectProfile.reasoning.initiative)}
                       onChange={(event) =>
                         setBehaviorOverride(
                           "reasoning.initiative",
-                          event.target.value === "" ? undefined : Number(event.target.value)
+                          scoreBehaviorOverride(event.target.value)
                         )
                       }
                     />
@@ -1011,15 +1113,89 @@ export default function PromptStudioView({
                       min="0"
                       max="100"
                       value={numericBehaviorOverride("reasoning.verification")}
-                      placeholder={String(activeProfile.profile.reasoning.verification)}
+                      placeholder={String(projectProfile.reasoning.verification)}
                       onChange={(event) =>
                         setBehaviorOverride(
                           "reasoning.verification",
-                          event.target.value === "" ? undefined : Number(event.target.value)
+                          scoreBehaviorOverride(event.target.value)
                         )
                       }
                     />
                   </div>
+                </div>
+
+                <div className="two-column-fields">
+                  <div className="field">
+                    <div className="field-heading"><label>Tool use</label></div>
+                    <select
+                      value={
+                        typeof activeDraft.behaviorOverrides["tools.usage"] === "string"
+                          ? String(activeDraft.behaviorOverrides["tools.usage"])
+                          : ""
+                      }
+                      onChange={(event) =>
+                        setBehaviorOverride(
+                          "tools.usage",
+                          event.target.value === "" ? undefined : event.target.value
+                        )
+                      }
+                    >
+                      <option value="">Inherited ({projectProfile.tools.usage})</option>
+                      <option value="off">Off</option>
+                      <option value="when-useful">When useful</option>
+                      <option value="proactive">Proactive</option>
+                    </select>
+                  </div>
+
+                  <div className="field">
+                    <div className="field-heading"><label>External actions</label></div>
+                    <select
+                      value={
+                        typeof activeDraft.behaviorOverrides["tools.confirmExternalActions"] === "boolean"
+                          ? String(activeDraft.behaviorOverrides["tools.confirmExternalActions"])
+                          : ""
+                      }
+                      onChange={(event) =>
+                        setBehaviorOverride(
+                          "tools.confirmExternalActions",
+                          event.target.value === ""
+                            ? undefined
+                            : event.target.value === "true"
+                        )
+                      }
+                    >
+                      <option value="">
+                        Inherited ({projectProfile.tools.confirmExternalActions ? "confirm" : "allowed"})
+                      </option>
+                      <option value="true">Confirm consequential actions</option>
+                      <option value="false">No extra confirmation rule</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="field">
+                  <div className="field-heading"><label>Read-only first</label></div>
+                  <select
+                    value={
+                      typeof activeDraft.behaviorOverrides["tools.preferReadOnly"] === "boolean"
+                        ? String(activeDraft.behaviorOverrides["tools.preferReadOnly"])
+                        : ""
+                    }
+                    onChange={(event) =>
+                      setBehaviorOverride(
+                        "tools.preferReadOnly",
+                        event.target.value === ""
+                          ? undefined
+                          : event.target.value === "true"
+                      )
+                    }
+                  >
+                    <option value="">
+                      Inherited ({projectProfile.tools.preferReadOnly ? "yes" : "no"})
+                    </option>
+                    <option value="true">Prefer read-only inspection</option>
+                    <option value="false">No read-only preference</option>
+                  </select>
                 </div>
 
                 <div className="field">
@@ -1029,11 +1205,11 @@ export default function PromptStudioView({
                     min="0"
                     max="100"
                     value={numericBehaviorOverride("research.rigor")}
-                    placeholder={String(activeProfile.profile.research.rigor)}
+                    placeholder={String(projectProfile.research.rigor)}
                     onChange={(event) =>
                       setBehaviorOverride(
                         "research.rigor",
-                        event.target.value === "" ? undefined : Number(event.target.value)
+                        scoreBehaviorOverride(event.target.value)
                       )
                     }
                   />
