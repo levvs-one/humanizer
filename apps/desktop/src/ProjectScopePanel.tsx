@@ -1,10 +1,13 @@
+import { useRef, useState } from "react"
 import {
+  parseProjectDocument,
   updateProjectDocument,
   type BehaviorFieldPath,
   type BehaviorOverrideValue,
   type BehaviorProfile,
   type ProjectDocument
 } from "@humanizer/core"
+import { downloadProject } from "./project-storage"
 
 interface ProjectScopePanelProps {
   projects: ProjectDocument[]
@@ -12,6 +15,7 @@ interface ProjectScopePanelProps {
   baseProfile: BehaviorProfile
   onSelect: (projectId: string | null) => void
   onCreate: () => void
+  onImport: (project: ProjectDocument) => void
   onUpdate: (project: ProjectDocument) => void
   onDelete: (projectId: string) => void
 }
@@ -22,11 +26,31 @@ export default function ProjectScopePanel({
   baseProfile,
   onSelect,
   onCreate,
+  onImport,
   onUpdate,
   onDelete
 }: ProjectScopePanelProps) {
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [importError, setImportError] = useState<string | null>(null)
   const overrides = activeProject?.behaviorOverrides ?? {}
   const overrideCount = Object.keys(overrides).length
+
+  async function importProject(file: File | undefined) {
+    if (!file) return
+
+    try {
+      onImport(parseProjectDocument(await file.text()))
+      setImportError(null)
+    } catch (reason) {
+      setImportError(
+        reason instanceof Error ? reason.message : "Could not import this project."
+      )
+    } finally {
+      if (fileInput.current) {
+        fileInput.current.value = ""
+      }
+    }
+  }
 
   function setOverride(
     path: BehaviorFieldPath,
@@ -102,11 +126,38 @@ export default function ProjectScopePanel({
             <label>Scope</label>
             <span>{overrideCount} overrides</span>
           </div>
-          <button className="secondary-button" type="button" onClick={onCreate}>
-            New project
-          </button>
+          <input
+            ref={fileInput}
+            className="visually-hidden"
+            type="file"
+            accept=".json,.humanizer-project.json,application/json"
+            onChange={(event) => void importProject(event.target.files?.[0])}
+          />
+          <div className="draft-actions">
+            <button className="secondary-button" type="button" onClick={onCreate}>
+              New project
+            </button>
+            <button
+              className="plain-button"
+              type="button"
+              onClick={() => fileInput.current?.click()}
+            >
+              Import
+            </button>
+            {activeProject ? (
+              <button
+                className="plain-button"
+                type="button"
+                onClick={() => downloadProject(activeProject)}
+              >
+                Export
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
+
+      {importError ? <div className="inline-error">{importError}</div> : null}
 
       {activeProject ? (
         <>
