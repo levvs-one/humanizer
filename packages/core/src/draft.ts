@@ -33,6 +33,12 @@ export interface CreatePromptDraftInput {
   now?: string
 }
 
+export interface PromptDraftReferenceContext {
+  profileIds: readonly string[]
+  projectIds: readonly string[]
+  fallbackProfileId: string
+}
+
 const EMPTY_BRIEF: PromptBrief = {
   goal: "",
   context: "",
@@ -187,6 +193,40 @@ export function duplicatePromptDraftDocument(
     brief: source.brief,
     ...(options.now ? { now: options.now } : {})
   })
+}
+
+export function repairPromptDraftReferences(
+  source: PromptDraftDocument,
+  context: PromptDraftReferenceContext,
+  now = new Date().toISOString()
+): PromptDraftDocument {
+  const profileIds = new Set(context.profileIds)
+  const projectIds = new Set(context.projectIds)
+
+  if (!profileIds.has(context.fallbackProfileId)) {
+    throw new Error("Fallback profile must exist in the reference context.")
+  }
+
+  const profileId = profileIds.has(source.profileId)
+    ? source.profileId
+    : context.fallbackProfileId
+  const projectId =
+    source.projectId === null || projectIds.has(source.projectId)
+      ? source.projectId
+      : null
+
+  if (profileId === source.profileId && projectId === source.projectId) {
+    return source
+  }
+
+  return updatePromptDraftDocument(
+    source,
+    {
+      profileId,
+      projectId
+    },
+    now
+  )
 }
 
 export function serializePromptDraftDocument(
