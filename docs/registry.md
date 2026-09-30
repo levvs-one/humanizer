@@ -46,3 +46,12 @@ ChatGPT Custom Instructions currently allows 1,500 characters on Free and Go, an
 Source: https://help.openai.com/en/articles/8096356-custom-instructions-for-chatgpt
 
 Verified: 2026-09-30
+
+
+## Freshness diagnostics
+
+Registry verification dates are machine-readable, not decorative metadata.
+
+The core `findStaleTargetSources` utility accepts a reference date and maximum age in days, then reports targets whose official-source verification is older than that threshold. It performs no network requests and never assumes stale metadata is wrong; it only flags entries that should be re-verified.
+
+The exact threshold is considered fresh. For example, a target verified 30 days ago is not reported when the configured maximum age is 30 days.
