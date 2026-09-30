@@ -1,5 +1,6 @@
 import { useRef, useState } from "react"
 import {
+  applyBehaviorOverrides,
   parseProjectDocument,
   updateProjectDocument,
   type BehaviorFieldPath,
@@ -13,6 +14,8 @@ interface ProjectScopePanelProps {
   projects: ProjectDocument[]
   activeProject: ProjectDocument | null
   baseProfile: BehaviorProfile
+  activeModelId: string
+  activeModelLabel: string
   storageAvailable: boolean
   onSelect: (projectId: string | null) => void
   onCreate: () => void
@@ -25,6 +28,8 @@ export default function ProjectScopePanel({
   projects,
   activeProject,
   baseProfile,
+  activeModelId,
+  activeModelLabel,
   storageAvailable,
   onSelect,
   onCreate,
@@ -36,6 +41,9 @@ export default function ProjectScopePanel({
   const [importError, setImportError] = useState<string | null>(null)
   const overrides = activeProject?.behaviorOverrides ?? {}
   const overrideCount = Object.keys(overrides).length
+  const projectProfile = applyBehaviorOverrides(baseProfile, overrides)
+  const modelOverrides = activeProject?.modelOverrides[activeModelId] ?? {}
+  const modelOverrideCount = Object.keys(modelOverrides).length
 
   async function importProject(file: File | undefined) {
     if (!file) return
@@ -80,6 +88,56 @@ export default function ProjectScopePanel({
   function numericOverride(path: BehaviorFieldPath): string {
     const value = overrides[path]
     return typeof value === "number" ? String(value) : ""
+  }
+
+  function setModelOverride(
+    path: BehaviorFieldPath,
+    value: BehaviorOverrideValue | undefined
+  ) {
+    if (!activeProject) {
+      return
+    }
+
+    const nextModelOverrides = { ...activeProject.modelOverrides }
+    const next = { ...(nextModelOverrides[activeModelId] ?? {}) }
+
+    if (value === undefined) {
+      delete next[path]
+    } else {
+      next[path] = value
+    }
+
+    if (Object.keys(next).length === 0) {
+      delete nextModelOverrides[activeModelId]
+    } else {
+      nextModelOverrides[activeModelId] = next
+    }
+
+    onUpdate(
+      updateProjectDocument(activeProject, {
+        modelOverrides: nextModelOverrides
+      })
+    )
+  }
+
+  function numericModelOverride(path: BehaviorFieldPath): string {
+    const value = modelOverrides[path]
+    return typeof value === "number" ? String(value) : ""
+  }
+
+  function resetModelOverrides() {
+    if (!activeProject || modelOverrideCount === 0) {
+      return
+    }
+
+    const nextModelOverrides = { ...activeProject.modelOverrides }
+    delete nextModelOverrides[activeModelId]
+
+    onUpdate(
+      updateProjectDocument(activeProject, {
+        modelOverrides: nextModelOverrides
+      })
+    )
   }
 
   function scoreOverride(value: string): number | undefined {
@@ -129,7 +187,10 @@ export default function ProjectScopePanel({
         <div className="field project-create-field">
           <div className="field-heading">
             <label>Scope</label>
-            <span>{overrideCount} overrides</span>
+            <span>
+              {overrideCount} project
+              {modelOverrideCount > 0 ? " · " + modelOverrideCount + " model" : ""}
+            </span>
           </div>
           <input
             ref={fileInput}
@@ -437,6 +498,254 @@ export default function ProjectScopePanel({
                   Delete project
                 </button>
               </div>
+            </div>
+          </details>
+
+          <details className="advanced-behavior">
+            <summary>
+              {activeModelLabel} overrides
+              {modelOverrideCount > 0 ? " (" + modelOverrideCount + ")" : ""}
+            </summary>
+
+            <div className="advanced-behavior-content">
+              <div className="field">
+                <div className="field-heading">
+                  <label>Role</label>
+                  <span>Blank inherits the project scope</span>
+                </div>
+                <input
+                  value={
+                    typeof modelOverrides.role === "string"
+                      ? modelOverrides.role
+                      : ""
+                  }
+                  placeholder={projectProfile.role}
+                  onChange={(event) =>
+                    setModelOverride(
+                      "role",
+                      event.target.value === "" ? undefined : event.target.value
+                    )
+                  }
+                />
+              </div>
+
+              <div className="field">
+                <div className="field-heading">
+                  <label>Objective</label>
+                  <span>Blank inherits the project scope</span>
+                </div>
+                <textarea
+                  rows={3}
+                  value={
+                    typeof modelOverrides.objective === "string"
+                      ? modelOverrides.objective
+                      : ""
+                  }
+                  placeholder={projectProfile.objective}
+                  onChange={(event) =>
+                    setModelOverride(
+                      "objective",
+                      event.target.value === "" ? undefined : event.target.value
+                    )
+                  }
+                />
+              </div>
+
+              <div className="two-column-fields">
+                <div className="field">
+                  <div className="field-heading"><label>Verbosity</label></div>
+                  <select
+                    value={
+                      typeof modelOverrides["communication.verbosity"] === "string"
+                        ? String(modelOverrides["communication.verbosity"])
+                        : ""
+                    }
+                    onChange={(event) =>
+                      setModelOverride(
+                        "communication.verbosity",
+                        event.target.value === "" ? undefined : event.target.value
+                      )
+                    }
+                  >
+                    <option value="">
+                      Project default ({projectProfile.communication.verbosity})
+                    </option>
+                    <option value="low">Compact</option>
+                    <option value="medium">Balanced</option>
+                    <option value="high">Detailed</option>
+                  </select>
+                </div>
+
+                <div className="field">
+                  <div className="field-heading">
+                    <label>Directness</label>
+                    <span>0–100</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={numericModelOverride("communication.directness")}
+                    placeholder={String(projectProfile.communication.directness)}
+                    onChange={(event) =>
+                      setModelOverride(
+                        "communication.directness",
+                        scoreOverride(event.target.value)
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="two-column-fields">
+                <div className="field">
+                  <div className="field-heading">
+                    <label>Initiative</label>
+                    <span>0–100</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={numericModelOverride("reasoning.initiative")}
+                    placeholder={String(projectProfile.reasoning.initiative)}
+                    onChange={(event) =>
+                      setModelOverride(
+                        "reasoning.initiative",
+                        scoreOverride(event.target.value)
+                      )
+                    }
+                  />
+                </div>
+
+                <div className="field">
+                  <div className="field-heading">
+                    <label>Verification</label>
+                    <span>0–100</span>
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={numericModelOverride("reasoning.verification")}
+                    placeholder={String(projectProfile.reasoning.verification)}
+                    onChange={(event) =>
+                      setModelOverride(
+                        "reasoning.verification",
+                        scoreOverride(event.target.value)
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="field">
+                <div className="field-heading">
+                  <label>Research rigor</label>
+                  <span>0–100</span>
+                </div>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={numericModelOverride("research.rigor")}
+                  placeholder={String(projectProfile.research.rigor)}
+                  onChange={(event) =>
+                    setModelOverride(
+                      "research.rigor",
+                      scoreOverride(event.target.value)
+                    )
+                  }
+                />
+              </div>
+
+              <div className="two-column-fields">
+                <div className="field">
+                  <div className="field-heading"><label>Tool use</label></div>
+                  <select
+                    value={
+                      typeof modelOverrides["tools.usage"] === "string"
+                        ? String(modelOverrides["tools.usage"])
+                        : ""
+                    }
+                    onChange={(event) =>
+                      setModelOverride(
+                        "tools.usage",
+                        event.target.value === "" ? undefined : event.target.value
+                      )
+                    }
+                  >
+                    <option value="">
+                      Project default ({projectProfile.tools.usage})
+                    </option>
+                    <option value="off">Off</option>
+                    <option value="when-useful">When useful</option>
+                    <option value="proactive">Proactive</option>
+                  </select>
+                </div>
+
+                <div className="field">
+                  <div className="field-heading"><label>External actions</label></div>
+                  <select
+                    value={
+                      typeof modelOverrides["tools.confirmExternalActions"] === "boolean"
+                        ? String(modelOverrides["tools.confirmExternalActions"])
+                        : ""
+                    }
+                    onChange={(event) =>
+                      setModelOverride(
+                        "tools.confirmExternalActions",
+                        event.target.value === ""
+                          ? undefined
+                          : event.target.value === "true"
+                      )
+                    }
+                  >
+                    <option value="">
+                      Project default ({projectProfile.tools.confirmExternalActions ? "confirm" : "allowed"})
+                    </option>
+                    <option value="true">Confirm consequential actions</option>
+                    <option value="false">No extra confirmation rule</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="field">
+                <div className="field-heading"><label>Read-only first</label></div>
+                <select
+                  value={
+                    typeof modelOverrides["tools.preferReadOnly"] === "boolean"
+                      ? String(modelOverrides["tools.preferReadOnly"])
+                      : ""
+                  }
+                  onChange={(event) =>
+                    setModelOverride(
+                      "tools.preferReadOnly",
+                      event.target.value === ""
+                        ? undefined
+                        : event.target.value === "true"
+                    )
+                  }
+                >
+                  <option value="">
+                    Project default ({projectProfile.tools.preferReadOnly ? "yes" : "no"})
+                  </option>
+                  <option value="true">Prefer read-only inspection</option>
+                  <option value="false">No read-only preference</option>
+                </select>
+              </div>
+
+              {modelOverrideCount > 0 ? (
+                <div className="draft-actions">
+                  <button
+                    className="plain-button"
+                    type="button"
+                    onClick={resetModelOverrides}
+                  >
+                    Reset {activeModelLabel} overrides
+                  </button>
+                </div>
+              ) : null}
             </div>
           </details>
         </>
