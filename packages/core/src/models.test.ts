@@ -13,9 +13,9 @@ describe("model registry", () => {
     expect(openai.every((model) => model.provider === "openai")).toBe(true)
   })
 
-  it("keeps unknown token limits explicit", () => {
+  it("stores verified Gemini 3.8 token limits", () => {
     const model = getModel("gemini-3.8-flash")
-    expect(model.contextWindowTokens).toBeNull()
-    expect(model.maxOutputTokens).toBeNull()
+    expect(model.contextWindowTokens).toBe(1_048_576)
+    expect(model.maxOutputTokens).toBe(65_536)
   })
 })

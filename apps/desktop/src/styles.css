@@ -1177,3 +1177,97 @@ select:focus {
 .prompt-diagnostic.error > span {
   color: #b42318;
 }
+
+
+.runtime-panel .panel-heading {
+  margin-bottom: 18px;
+}
+
+.runtime-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.runtime-actions span {
+  color: #8a8a8f;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.runtime-error {
+  margin: 12px 0 0;
+  color: #b42318;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.runtime-response {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #ececef;
+}
+
+.runtime-response-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.runtime-response-heading h3 {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 620;
+}
+
+.runtime-response-heading span {
+  color: #8a8a8f;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.runtime-response pre {
+  max-height: 320px;
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid #e2e2e6;
+  border-radius: 11px;
+  background: #ffffff;
+  color: #252527;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.runtime-response dl {
+  display: flex;
+  gap: 22px;
+  margin: 12px 0 0;
+}
+
+.runtime-response dl div {
+  display: flex;
+  gap: 6px;
+}
+
+.runtime-response dt,
+.runtime-response dd {
+  margin: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+.runtime-response dt {
+  color: #8a8a8f;
+}
+
+.runtime-response dd {
+  color: #4d4d52;
+}

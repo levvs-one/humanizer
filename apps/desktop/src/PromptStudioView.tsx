@@ -25,6 +25,10 @@ import {
   saveActivePromptDraftId,
   savePromptDrafts
 } from "./prompt-draft-storage"
+import {
+  executeProviderPrompt,
+  type ExecutePromptResponse
+} from "./runtime"
 
 const plans: Array<{ value: PlanId; label: string }> = [
   { value: "free", label: "Free" },
@@ -116,6 +120,15 @@ export default function PromptStudioView({
   })
   const [copied, setCopied] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [runInputs, setRunInputs] = useState<Record<string, string>>({})
+  const [executing, setExecuting] = useState(false)
+  const [executionError, setExecutionError] = useState<string | null>(null)
+  const [execution, setExecution] = useState<{
+    draftId: string
+    modelId: string
+    surfaceId: string
+    response: ExecutePromptResponse
+  } | null>(null)
 
   const draft = drafts.find((entry) => entry.id === activeDraftId) ?? drafts[0]
 
@@ -176,12 +189,32 @@ export default function PromptStudioView({
     }
   })
   const targetExport = buildTargetExport(result)
+  const isApiTarget = activeSurface.product.endsWith("API")
+  const requiresRuntimeInput = activeSurface.instructionRole !== "user"
+  const runtimeInput = runInputs[activeDraft.id] ?? ""
+  const currentExecution =
+    execution &&
+    execution.draftId === activeDraft.id &&
+    execution.modelId === activeModel.id &&
+    execution.surfaceId === activeSurface.id
+      ? execution.response
+      : null
+  const hasBlockingDiagnostic = result.diagnostics.some(
+    (diagnostic) => diagnostic.severity === "error"
+  )
+  const canExecute =
+    isApiTarget &&
+    !hasBlockingDiagnostic &&
+    (activeSurface.instructionRole !== "user" ||
+      activeDraft.brief.goal.trim().length > 0) &&
+    (!requiresRuntimeInput || runtimeInput.trim().length > 0)
 
   function replaceDraft(next: PromptDraftDocument) {
     setDrafts((current) =>
       current.map((entry) => (entry.id === next.id ? next : entry))
     )
     setCopied(false)
+    setExecutionError(null)
   }
 
   function patchDraft(
@@ -314,6 +347,41 @@ export default function PromptStudioView({
     await navigator.clipboard.writeText(result.text)
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1200)
+  }
+
+  async function runPrompt() {
+    if (!canExecute) return
+
+    setExecuting(true)
+    setExecutionError(null)
+
+    try {
+      const response = await executeProviderPrompt({
+        provider: activeModel.provider,
+        model: activeModel.id,
+        instructionRole: activeSurface.instructionRole,
+        prompt: result.text,
+        ...(requiresRuntimeInput ? { runtimeInput } : {})
+      })
+
+      setExecution({
+        draftId: activeDraft.id,
+        modelId: activeModel.id,
+        surfaceId: activeSurface.id,
+        response
+      })
+    } catch (reason) {
+      const message =
+        reason instanceof Error ? reason.message : String(reason)
+
+      setExecutionError(
+        message.includes("No stored API key")
+          ? "No API key is configured for this provider. Add one in Settings."
+          : message
+      )
+    } finally {
+      setExecuting(false)
+    }
   }
 
   const status =
@@ -565,6 +633,53 @@ export default function PromptStudioView({
               <div><dt>Research</dt><dd>{activeProfile.profile.research.rigor}</dd></div>
             </dl>
           </section>
+
+          {isApiTarget ? (
+            <section className="panel runtime-panel">
+              <div className="panel-heading">
+                <h2>Run</h2>
+                <p>
+                  Execute this compiled prompt with the selected API model. The stored key stays in the native credential layer.
+                </p>
+              </div>
+
+              {requiresRuntimeInput ? (
+                <div className="field">
+                  <div className="field-heading">
+                    <label>Runtime input</label>
+                    <span>Sent as the user message</span>
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={runtimeInput}
+                    placeholder="What should the compiled instructions act on?"
+                    onChange={(event) =>
+                      setRunInputs((current) => ({
+                        ...current,
+                        [activeDraft.id]: event.target.value
+                      }))
+                    }
+                  />
+                </div>
+              ) : null}
+
+              {executionError ? (
+                <p className="runtime-error">{executionError}</p>
+              ) : null}
+
+              <div className="runtime-actions">
+                <button
+                  className="primary-button"
+                  type="button"
+                  disabled={!canExecute || executing}
+                  onClick={() => void runPrompt()}
+                >
+                  {executing ? "Running" : "Run with " + providerLabels[activeModel.provider]}
+                </button>
+                <span>Responses are not saved.</span>
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <aside className="preview-panel">
@@ -599,6 +714,37 @@ export default function PromptStudioView({
           <pre className="prompt-output">{result.text}</pre>
 
           <PromptInspector diagnostics={result.diagnostics} />
+
+          {currentExecution ? (
+            <section className="runtime-response" aria-label="Provider response">
+              <div className="runtime-response-heading">
+                <h3>Response</h3>
+                <span>{activeModel.label}</span>
+              </div>
+              <pre>{currentExecution.text}</pre>
+              {(currentExecution.inputTokens !== null ||
+                currentExecution.outputTokens !== null) ? (
+                <dl>
+                  <div>
+                    <dt>Input</dt>
+                    <dd>
+                      {currentExecution.inputTokens === null
+                        ? "Not reported"
+                        : currentExecution.inputTokens.toLocaleString() + " tokens"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Output</dt>
+                    <dd>
+                      {currentExecution.outputTokens === null
+                        ? "Not reported"
+                        : currentExecution.outputTokens.toLocaleString() + " tokens"}
+                    </dd>
+                  </div>
+                </dl>
+              ) : null}
+            </section>
+          ) : null}
 
           <div className="source-note studio-source-note">
             <a href={activeModel.source.url} target="_blank" rel="noreferrer">Model source</a>
