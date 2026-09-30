@@ -92,7 +92,7 @@ Verified: 2026-09-30
 
 Instruction-style API targets can carry local multi-turn history.
 
-Humanizer keeps history in the desktop session and sends prior user/assistant turns using each provider's native request shape:
+Humanizer saves validated conversation history locally on the device and sends prior user/assistant turns using each provider's native request shape:
 
 - OpenAI Responses receives ordered input messages while the compiled behavior remains in `instructions`.
 - Anthropic Messages receives ordered `user` and `assistant` messages while the compiled behavior remains in `system`.
@@ -102,7 +102,9 @@ User-prompt surfaces remain single-turn. Humanizer does not reinterpret a compil
 
 ## Data handling
 
-Humanizer does not persist provider responses from manual Studio runs.
+For instruction-style API targets, completed multi-turn responses are saved in versioned local conversation storage so a Studio session can survive an app restart. Failed and cancelled runs are not added to history.
+
+Conversation storage is bounded: Humanizer retains at most 30 local sessions and 100 messages per session. Clearing a conversation removes that session from local storage.
 
 The runtime returns response text and provider-reported token usage to the webview. The saved API key is never returned.
 
@@ -112,7 +114,7 @@ Provider retention and data-processing behavior remains subject to the provider 
 
 This runtime is for manually executing a compiled prompt from Prompt Studio.
 
-This is still a lightweight Studio runtime rather than the final agent runtime. Multi-turn message history is supported for instruction-style API targets, while tools, research routing, durable sessions, and agent loops remain separate runtime layers.
+This is still a lightweight Studio runtime rather than the final agent runtime. Multi-turn message history and durable local Studio sessions are supported for instruction-style API targets, while tools, research routing, and agent loops remain separate runtime layers.
 
 
 ## Token preflight
