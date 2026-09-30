@@ -1,6 +1,6 @@
 import type { BehaviorProfile, PromptBrief } from "./types"
 
-export const PROMPT_IR_VERSION = 3 as const
+export const PROMPT_IR_VERSION = 4 as const
 
 export type PromptIRBlockId =
   | "role"
@@ -10,6 +10,7 @@ export type PromptIRBlockId =
   | "context"
   | "output"
   | "constraints"
+  | "rules"
   | "accuracy"
   | "research"
   | "communication"
@@ -233,6 +234,29 @@ function writingInstruction(profile: BehaviorProfile): string {
   return rules.join(" ")
 }
 
+function customRulesBlocks(profile: BehaviorProfile): PromptIRBlock[] {
+  const rules = [...new Set(
+    profile.customRules.map((rule) => rule.trim()).filter((rule) => rule.length > 0)
+  )]
+
+  if (rules.length === 0) {
+    return []
+  }
+
+  const text = rules.map((rule) => "- " + rule).join("\n")
+
+  return [
+    {
+      id: "rules",
+      heading: "Hard rules",
+      priority: 99,
+      required: true,
+      full: text,
+      compact: text
+    }
+  ]
+}
+
 function briefBlocks(brief?: PromptBrief): PromptIRBlock[] {
   if (!brief) {
     return []
@@ -336,6 +360,7 @@ export function buildPromptIR(profile: BehaviorProfile, brief?: PromptBrief): Pr
           ]
         : []),
       ...briefBlocks(brief),
+      ...customRulesBlocks(profile),
       {
         id: "accuracy",
         heading: "Accuracy",
