@@ -38,7 +38,9 @@ Profiles support live inheritance. A derived profile stores its base profile id 
 
 A project scope is a reusable local document that groups behavior overrides shared by multiple prompt drafts. It does not duplicate the base profile; it stores only the fields that differ for that project.
 
-Project scope documents are versioned, portable structured data. Draft-level overrides remain narrower and are applied after project overrides.
+A project can also carry optional model-specific overrides keyed by model id. These are narrower than the project-wide defaults and broader than one draft. Unknown model ids remain valid structured data so imported projects do not lose settings merely because the local registry is older or newer.
+
+Project scope documents are versioned, portable structured data. Draft-level overrides remain narrower and are applied after project and model overrides.
 
 ### Scoped behavior overrides
 
@@ -49,8 +51,8 @@ This creates an explicit layering model:
 ```text
 resolved profile
   + project overrides
+  + model overrides
   + draft/task overrides
-  + narrower model/runtime overrides later
   = effective behavior
 ```
 
