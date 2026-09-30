@@ -1,11 +1,21 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   compilePrompt,
   SURFACES,
+  updateProfileDocument,
   type BehaviorProfile,
   type PlanId,
+  type ProfileDocument,
   type PromptPurpose
 } from "@humanizer/core"
+import { createSeedProfiles, DEFAULT_BEHAVIOR } from "./defaults"
+import ProfilesView from "./ProfilesView"
+import {
+  loadActiveProfileId,
+  loadProfiles,
+  saveActiveProfileId,
+  saveProfiles
+} from "./profile-storage"
 
 type View = "humanize" | "studio" | "profiles" | "test" | "integrations" | "settings"
 
@@ -26,28 +36,6 @@ const purposeOptions: Array<{ value: PromptPurpose; label: string }> = [
   { value: "writing", label: "Writing" },
   { value: "agent", label: "Agent" }
 ]
-
-const initialProfile: BehaviorProfile = {
-  role: "Principal software engineer",
-  objective:
-    "Own the task end to end. Make production-quality decisions, verify important facts, and return the useful result without ceremony.",
-  purpose: "engineering",
-  communication: {
-    naturalness: 88,
-    directness: 92,
-    verbosity: "low"
-  },
-  research: {
-    rigor: 92,
-    preferPrimarySources: true,
-    allowCommunitySources: true
-  },
-  writing: {
-    avoidAISlop: true,
-    avoidUnnecessaryHeadings: true,
-    avoidRestatingPrompt: true
-  }
-}
 
 function updateNestedProfile(
   profile: BehaviorProfile,
@@ -550,7 +538,70 @@ function PendingView({
 
 export default function App() {
   const [view, setView] = useState<View>("humanize")
-  const [profile, setProfile] = useState<BehaviorProfile>(initialProfile)
+  const [profiles, setProfiles] = useState<ProfileDocument[]>(() => {
+    const stored = loadProfiles()
+    return stored.length > 0 ? stored : createSeedProfiles()
+  })
+  const [activeProfileId, setActiveProfileId] = useState(
+    () => loadActiveProfileId() ?? "principal-engineer"
+  )
+
+  const activeDocument =
+    profiles.find((document) => document.id === activeProfileId) ?? profiles[0]
+  const activeId = activeDocument?.id ?? ""
+  const profile = activeDocument?.profile ?? DEFAULT_BEHAVIOR
+
+  useEffect(() => {
+    saveProfiles(profiles)
+  }, [profiles])
+
+  useEffect(() => {
+    if (activeId) {
+      saveActiveProfileId(activeId)
+    }
+  }, [activeId])
+
+  function setProfile(nextProfile: BehaviorProfile) {
+    if (!activeDocument) {
+      return
+    }
+
+    setProfiles((current) =>
+      current.map((document) =>
+        document.id === activeDocument.id
+          ? updateProfileDocument(document, { profile: nextProfile })
+          : document
+      )
+    )
+  }
+
+  function addProfile(document: ProfileDocument) {
+    setProfiles((current) => [...current, document])
+  }
+
+  function updateDocument(nextDocument: ProfileDocument) {
+    setProfiles((current) =>
+      current.map((document) =>
+        document.id === nextDocument.id ? nextDocument : document
+      )
+    )
+  }
+
+  function deleteProfile(profileId: string) {
+    setProfiles((current) => {
+      if (current.length <= 1) {
+        return current
+      }
+
+      const next = current.filter((document) => document.id !== profileId)
+
+      if (profileId === activeId && next[0]) {
+        setActiveProfileId(next[0].id)
+      }
+
+      return next
+    })
+  }
 
   const nav: Array<{ id: View; label: string }> = [
     { id: "humanize", label: "Humanize" },
@@ -601,9 +652,13 @@ export default function App() {
         {view === "studio" ? <PromptStudio profile={profile} /> : null}
 
         {view === "profiles" ? (
-          <PendingView
-            title="Profiles"
-            description="Save, inherit, and scope behavior profiles without copying prompt text."
+          <ProfilesView
+            profiles={profiles}
+            activeProfileId={activeId}
+            onUse={setActiveProfileId}
+            onCreate={addProfile}
+            onUpdate={updateDocument}
+            onDelete={deleteProfile}
           />
         ) : null}
 
