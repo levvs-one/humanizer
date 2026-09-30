@@ -453,10 +453,14 @@ function HumanizeView({
 
 export default function App() {
   const [view, setView] = useState<View>("humanize")
-  const [profiles, setProfiles] = useState<ProfileDocument[]>(() => {
-    const stored = loadProfiles()
-    return stored.length > 0 ? stored : createSeedProfiles()
-  })
+  const [initialProfileStore] = useState(() => loadProfiles())
+  const [profiles, setProfiles] = useState<ProfileDocument[]>(() =>
+    initialProfileStore.profiles.length > 0
+      ? initialProfileStore.profiles
+      : createSeedProfiles()
+  )
+  const [profileStorageAvailable, setProfileStorageAvailable] =
+    useState(initialProfileStore.storageAvailable)
   const [activeProfileId, setActiveProfileId] = useState(
     () => loadActiveProfileId() ?? "principal-engineer"
   )
@@ -476,14 +480,24 @@ export default function App() {
     : undefined
 
   useEffect(() => {
-    saveProfiles(profiles)
-  }, [profiles])
+    if (!profileStorageAvailable) {
+      return
+    }
+
+    if (!saveProfiles(profiles)) {
+      setProfileStorageAvailable(false)
+    }
+  }, [profiles, profileStorageAvailable])
 
   useEffect(() => {
-    if (activeId) {
-      saveActiveProfileId(activeId)
+    if (!profileStorageAvailable || !activeId) {
+      return
     }
-  }, [activeId])
+
+    if (!saveActiveProfileId(activeId)) {
+      setProfileStorageAvailable(false)
+    }
+  }, [activeId, profileStorageAvailable])
 
   function setProfile(nextProfile: BehaviorProfile) {
     if (!activeDocument) {
@@ -577,6 +591,12 @@ export default function App() {
       </aside>
 
       <div className="content">
+        {!profileStorageAvailable ? (
+          <div className="inline-error storage-warning">
+            Local profile storage is unavailable. Profile changes will stay in memory only for this app session.
+          </div>
+        ) : null}
+
         {view === "humanize" ? (
           <HumanizeView
             profile={profile}
