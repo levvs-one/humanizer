@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   compilePrompt,
   createPromptDraftDocument,
@@ -127,19 +127,15 @@ export default function PromptStudioView({
   const needsPlan = surface.characterLimit.kind === "by-plan"
   const plan = draft.target.plan ?? "plus"
 
-  const result = useMemo(
-    () =>
-      compilePrompt({
-        profile: profile.profile,
-        brief: draft.brief,
-        target: {
-          surfaceId: surface.id,
-          modelId: model.id,
-          ...(needsPlan ? { plan } : {})
-        }
-      }),
-    [profile.profile, draft.brief, surface.id, model.id, needsPlan, plan]
-  )
+  const result = compilePrompt({
+    profile: profile.profile,
+    brief: draft.brief,
+    target: {
+      surfaceId: surface.id,
+      modelId: model.id,
+      ...(needsPlan ? { plan } : {})
+    }
+  })
 
   function replaceDraft(next: PromptDraftDocument) {
     setDrafts((current) =>
