@@ -51,7 +51,7 @@ const profile: BehaviorProfile = {
 }
 
 describe("profile documents", () => {
-  it("creates a stable schema v4 root document", () => {
+  it("creates a stable schema v5 root document", () => {
     const document = createProfileDocument({
       id: "research",
       name: "Research",
@@ -59,7 +59,7 @@ describe("profile documents", () => {
       now: "2026-09-30T12:00:00.000Z"
     })
 
-    expect(document.schemaVersion).toBe(4)
+    expect(document.schemaVersion).toBe(5)
     expect(document.id).toBe("research")
     expect(document.baseProfileId).toBeNull()
     expect(document.inheritedFields).toEqual([])
@@ -290,10 +290,12 @@ describe("profile documents", () => {
 
     const migrated = parseProfileDocument(legacy)
 
-    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.schemaVersion).toBe(5)
     expect(migrated.baseProfileId).toBe("base")
     expect(migrated.inheritedFields).toContain("customRules")
+    expect(migrated.inheritedFields).toContain("tools.usage")
     expect(migrated.profile.customRules).toEqual([])
+    expect(migrated.profile.tools.usage).toBe("when-useful")
   })
 
   it("migrates schema v2 profiles to independent v4 roots", () => {
@@ -302,14 +304,14 @@ describe("profile documents", () => {
       id: "legacy-v2",
       name: "Legacy v2",
       description: "",
-      profile: (({ customRules: _customRules, ...legacyProfile }) => legacyProfile)(profile),
+      profile: (({ customRules: _customRules, tools: _tools, ...legacyProfile }) => legacyProfile)(profile),
       createdAt: "2026-09-01T00:00:00.000Z",
       updatedAt: "2026-09-02T00:00:00.000Z"
     })
 
     const migrated = parseProfileDocument(legacy)
 
-    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.schemaVersion).toBe(5)
     expect(migrated.baseProfileId).toBeNull()
     expect(migrated.inheritedFields).toEqual([])
     expect(migrated.updatedAt).toBe("2026-09-02T00:00:00.000Z")
@@ -347,11 +349,12 @@ describe("profile documents", () => {
 
     const migrated = parseProfileDocument(legacy)
 
-    expect(migrated.schemaVersion).toBe(4)
+    expect(migrated.schemaVersion).toBe(5)
     expect(migrated.profile.communication.directness).toBe(90)
     expect(migrated.profile.communication.formality).toBe(45)
     expect(migrated.profile.reasoning.verification).toBe(85)
     expect(migrated.profile.customRules).toEqual([])
+    expect(migrated.profile.tools.usage).toBe("when-useful")
     expect(migrated.updatedAt).toBe("2026-09-02T00:00:00.000Z")
   })
 
