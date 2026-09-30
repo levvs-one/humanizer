@@ -3,6 +3,7 @@ import {
   createPromptDraftDocument,
   duplicatePromptDraftDocument,
   parsePromptDraftDocument,
+  repairPromptDraftReferences,
   serializePromptDraftDocument,
   updatePromptDraftDocument
 } from "./draft"
@@ -153,6 +154,66 @@ describe("prompt draft documents", () => {
     expect(() => parsePromptDraftDocument(serialized)).toThrow(
       "invalid or incomplete"
     )
+  })
+
+  it("repairs missing profile and project references", () => {
+    const draft = createPromptDraftDocument({
+      id: "draft",
+      profileId: "deleted-profile",
+      projectId: "deleted-project",
+      target: { surfaceId: "chatgpt-user-prompt" },
+      now: "2026-09-30T14:00:00.000Z"
+    })
+
+    const repaired = repairPromptDraftReferences(
+      draft,
+      {
+        profileIds: ["principal-engineer", "writer"],
+        projectIds: ["payments"],
+        fallbackProfileId: "principal-engineer"
+      },
+      "2026-09-30T15:00:00.000Z"
+    )
+
+    expect(repaired.profileId).toBe("principal-engineer")
+    expect(repaired.projectId).toBeNull()
+    expect(repaired.createdAt).toBe(draft.createdAt)
+    expect(repaired.updatedAt).toBe("2026-09-30T15:00:00.000Z")
+  })
+
+  it("leaves valid references untouched without changing document identity", () => {
+    const draft = createPromptDraftDocument({
+      id: "draft",
+      profileId: "principal-engineer",
+      projectId: "payments",
+      target: { surfaceId: "chatgpt-user-prompt" },
+      now: "2026-09-30T14:00:00.000Z"
+    })
+
+    const repaired = repairPromptDraftReferences(draft, {
+      profileIds: ["principal-engineer"],
+      projectIds: ["payments"],
+      fallbackProfileId: "principal-engineer"
+    })
+
+    expect(repaired).toBe(draft)
+    expect(repaired.updatedAt).toBe("2026-09-30T14:00:00.000Z")
+  })
+
+  it("requires the fallback profile to exist", () => {
+    const draft = createPromptDraftDocument({
+      id: "draft",
+      profileId: "missing",
+      target: { surfaceId: "chatgpt-user-prompt" }
+    })
+
+    expect(() =>
+      repairPromptDraftReferences(draft, {
+        profileIds: ["writer"],
+        projectIds: [],
+        fallbackProfileId: "principal-engineer"
+      })
+    ).toThrow("Fallback profile must exist")
   })
 
   it("rejects malformed imports", () => {
