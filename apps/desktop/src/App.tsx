@@ -181,6 +181,25 @@ function HumanizeView({
               ))}
             </select>
           </div>
+
+          <div className="field">
+            <FieldLabel
+              title="Hard rules"
+              hint="One rule per line. These stay attached to the profile across targets."
+            />
+            <textarea
+              rows={4}
+              value={profile.customRules.join("\n")}
+              placeholder="Never invent completed actions.\nPrefer the smallest production-safe change."
+              onChange={(event) =>
+                setProfile({
+                  ...profile,
+                  customRules:
+                    event.target.value === "" ? [] : event.target.value.split("\n")
+                })
+              }
+            />
+          </div>
         </section>
 
         <section className="panel">
