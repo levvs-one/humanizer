@@ -13,7 +13,8 @@
   "dependencies": {
     "@humanizer/core": "workspace:*",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "@tauri-apps/api": "^2.8.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.4",
