@@ -79,6 +79,7 @@ export interface BehaviorProfile {
 }
 
 export interface PromptBrief {
+  purpose?: PromptPurpose
   goal: string
   context: string
   output: string

@@ -42,6 +42,29 @@ describe("Prompt IR", () => {
     ])
   })
 
+  it("uses the profile purpose when the draft has no override", () => {
+    const ir = buildPromptIR(profile)
+    const strategy = ir.blocks.find((block) => block.id === "strategy")
+
+    expect(ir.purpose).toBe("engineering")
+    expect(strategy?.full).toContain("documented APIs")
+  })
+
+  it("lets a draft override the profile purpose", () => {
+    const ir = buildPromptIR(profile, {
+      purpose: "research",
+      goal: "Investigate the claim.",
+      context: "",
+      output: "",
+      constraints: ""
+    })
+    const strategy = ir.blocks.find((block) => block.id === "strategy")
+
+    expect(ir.purpose).toBe("research")
+    expect(strategy?.full).toContain("primary sources")
+    expect(strategy?.full).not.toContain("smallest production-safe change")
+  })
+
   it("encodes anti-slop behavior without fake human mistakes", () => {
     const ir = buildPromptIR(profile)
     const writing = ir.blocks.find((block) => block.id === "writing")

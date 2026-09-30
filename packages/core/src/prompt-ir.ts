@@ -1,10 +1,11 @@
 import type { BehaviorProfile, PromptBrief } from "./types"
 
-export const PROMPT_IR_VERSION = 2 as const
+export const PROMPT_IR_VERSION = 3 as const
 
 export type PromptIRBlockId =
   | "role"
   | "objective"
+  | "strategy"
   | "task"
   | "context"
   | "output"
@@ -169,6 +170,48 @@ function researchInstruction(profile: BehaviorProfile): string {
   return "Verify uncertain or current claims when needed. " + sourceOrder + " " + community
 }
 
+function purposeStrategy(
+  purpose: BehaviorProfile["purpose"]
+): { full: string; compact: string } | null {
+  if (purpose === "engineering") {
+    return {
+      full:
+        "Inspect existing implementation and constraints before proposing changes. Prefer documented APIs and established project patterns. Solve the root cause with the smallest production-safe change, then state how to verify it.",
+      compact:
+        "Inspect before changing. Prefer documented APIs and the smallest safe fix. Verify the result."
+    }
+  }
+
+  if (purpose === "research") {
+    return {
+      full:
+        "Define the question precisely, gather the strongest available evidence, prefer primary sources, and separate verified facts from interpretation. Make dates and unresolved uncertainty explicit when they affect the conclusion.",
+      compact:
+        "Use strong evidence, prefer primary sources, and separate verified facts from interpretation."
+    }
+  }
+
+  if (purpose === "writing") {
+    return {
+      full:
+        "Write for the requested audience and purpose. Preserve useful voice and specificity, improve rhythm and structure, and remove generic filler without making the prose artificially quirky.",
+      compact:
+        "Write for the audience, preserve specificity, and remove generic filler."
+    }
+  }
+
+  if (purpose === "agent") {
+    return {
+      full:
+        "Turn the goal into concrete actions, execute safe and reversible steps without unnecessary confirmation, verify outcomes, and continue until the task is complete or a real blocker requires the user.",
+      compact:
+        "Act on safe steps, verify outcomes, and continue until complete or genuinely blocked."
+    }
+  }
+
+  return null
+}
+
 function writingInstruction(profile: BehaviorProfile): string {
   const rules: string[] = []
 
@@ -250,12 +293,14 @@ function briefBlocks(brief?: PromptBrief): PromptIRBlock[] {
 
 export function buildPromptIR(profile: BehaviorProfile, brief?: PromptBrief): PromptIR {
   const role = profile.role.trim() || "Experienced professional"
+  const purpose = brief?.purpose ?? profile.purpose
+  const strategy = purposeStrategy(purpose)
   const objective =
     profile.objective.trim() || "Help the user complete the task accurately and efficiently."
 
   return {
     version: PROMPT_IR_VERSION,
-    purpose: profile.purpose,
+    purpose,
     blocks: [
       {
         id: "role",
@@ -278,6 +323,18 @@ export function buildPromptIR(profile: BehaviorProfile, brief?: PromptBrief): Pr
         full: objective,
         compact: objective
       },
+      ...(strategy
+        ? [
+            {
+              id: "strategy" as const,
+              heading: "Approach",
+              priority: 90,
+              required: false,
+              full: strategy.full,
+              compact: strategy.compact
+            }
+          ]
+        : []),
       ...briefBlocks(brief),
       {
         id: "accuracy",
