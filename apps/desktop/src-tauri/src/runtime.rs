@@ -3,7 +3,7 @@ use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -62,6 +62,9 @@ pub enum ProviderStreamEvent {
     Delta {
         text: String,
     },
+    Citation {
+        citation: RuntimeCitation,
+    },
     Usage {
         input_tokens: Option<u64>,
         output_tokens: Option<u64>,
@@ -78,6 +81,7 @@ pub enum ProviderStreamEvent {
 struct StreamUsage {
     input_tokens: Option<u64>,
     output_tokens: Option<u64>,
+    citations: Vec<RuntimeCitation>,
 }
 
 #[derive(Default)]
@@ -225,6 +229,13 @@ fn google_stream_event(
     Ok((!text.is_empty()).then_some(text))
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeCitation {
+    url: String,
+    title: String,
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeMessage {
@@ -240,6 +251,8 @@ pub struct ExecutePromptRequest {
     instruction_role: String,
     prompt: String,
     max_output_tokens: Option<u32>,
+    #[serde(default)]
+    web_search: bool,
     runtime_input: Option<String>,
     #[serde(default)]
     history: Vec<RuntimeMessage>,
