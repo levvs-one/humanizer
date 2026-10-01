@@ -703,16 +703,65 @@ export default function PromptStudioView({
   }
 
   async function runPrompt() {
-    if (!canExecute || executing) return
+    if (!canExecute || executing || countingTokens) return
 
-    const runId = createRunId()
     const runDraftId = activeDraft.id
     const runModelId = activeModel.id
     const runSurfaceId = activeSurface.id
     const runProvider = activeModel.provider
+    const runInstructionRole = activeSurface.instructionRole
+    const runPromptText = result.text
     const runRuntimeInput = runtimeInput.trim()
     const runConversationKey = conversationKey
     const runHistory = supportsConversation ? [...conversationHistory] : []
+    const runTokenCountSignature = tokenCountSignature
+    const runContextWindow = activeModel.contextWindowTokens
+    const runRequest = {
+      provider: runProvider,
+      model: runModelId,
+      instructionRole: runInstructionRole,
+      prompt: runPromptText,
+      ...(requiresRuntimeInput ? { runtimeInput: runRuntimeInput } : {}),
+      ...(supportsConversation ? { history: runHistory } : {})
+    }
+
+    if (canPreflightTokens && currentTokenCount === null) {
+      setCountingTokens(true)
+      setTokenCountError(null)
+
+      try {
+        const response = await countProviderTokens(runRequest)
+
+        setTokenCount({
+          signature: runTokenCountSignature,
+          inputTokens: response.inputTokens
+        })
+
+        if (
+          runContextWindow !== null &&
+          response.inputTokens > runContextWindow
+        ) {
+          setTokenCountError(
+            "Exact preflight exceeds the verified context window by " +
+              (response.inputTokens - runContextWindow).toLocaleString() +
+              " input tokens. Shorten the prompt, runtime input, or conversation."
+          )
+          return
+        }
+      } catch (reason) {
+        const message = reason instanceof Error ? reason.message : String(reason)
+        setTokenCountError(
+          message.includes("No stored API key")
+            ? "Configure this provider in Settings before running."
+            : "Exact preflight failed: " + message
+        )
+        return
+      } finally {
+        setCountingTokens(false)
+      }
+    }
+
+    const runId = createRunId()
     let completedText = ""
     let runFailed = false
 
@@ -734,14 +783,7 @@ export default function PromptStudioView({
 
     try {
       await streamProviderPrompt(
-        {
-          provider: runProvider,
-          model: runModelId,
-          instructionRole: activeSurface.instructionRole,
-          prompt: result.text,
-          ...(requiresRuntimeInput ? { runtimeInput: runRuntimeInput } : {}),
-          ...(supportsConversation ? { history: runHistory } : {})
-        },
+        runRequest,
         runId,
         (event) => {
           if (invalidatedRunIds.current.has(runId)) {
@@ -794,7 +836,7 @@ export default function PromptStudioView({
 
             if (event.data.inputTokens !== null) {
               setTokenCount({
-                signature: tokenCountSignature,
+                signature: runTokenCountSignature,
                 inputTokens: event.data.inputTokens
               })
             }
@@ -1412,14 +1454,16 @@ export default function PromptStudioView({
                 <button
                   className={executing ? "secondary-button" : "primary-button"}
                   type="button"
-                  disabled={!executing && !canExecute}
+                  disabled={!executing && (!canExecute || countingTokens)}
                   onClick={() => void (executing ? cancelRun() : runPrompt())}
                 >
                   {executing
                     ? "Cancel run"
-                    : supportsConversation && conversationHistory.length > 0
-                      ? "Continue with " + providerLabels[activeModel.provider]
-                      : "Run with " + providerLabels[activeModel.provider]}
+                    : countingTokens
+                      ? "Checking context"
+                      : supportsConversation && conversationHistory.length > 0
+                        ? "Continue with " + providerLabels[activeModel.provider]
+                        : "Run with " + providerLabels[activeModel.provider]}
                 </button>
 
                 {supportsConversation && conversationHistory.length > 0 ? (
