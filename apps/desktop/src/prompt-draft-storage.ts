@@ -67,9 +67,13 @@ export function loadActivePromptDraftId(): string | null {
   }
 }
 
-export function saveActivePromptDraftId(draftId: string): boolean {
+export function saveActivePromptDraftId(draftId: string | null): boolean {
   try {
-    window.localStorage.setItem(ACTIVE_DRAFT_KEY, draftId)
+    if (draftId === null) {
+      window.localStorage.removeItem(ACTIVE_DRAFT_KEY)
+    } else {
+      window.localStorage.setItem(ACTIVE_DRAFT_KEY, draftId)
+    }
     return true
   } catch {
     return false
