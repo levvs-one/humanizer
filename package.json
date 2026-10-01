@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "pnpm --filter @humanizer/desktop dev",
     "desktop": "pnpm --filter @humanizer/desktop tauri:dev",
-    "build": "pnpm --filter @humanizer/desktop build",
-    "typecheck": "pnpm --filter @humanizer/core typecheck && pnpm --filter @humanizer/desktop typecheck",
+    "build": "pnpm --filter @humanizer/desktop build && pnpm --filter @humanizer/cli build",
+    "typecheck": "pnpm --filter @humanizer/core typecheck && pnpm --filter @humanizer/desktop typecheck && pnpm --filter @humanizer/cli typecheck",
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome format --write ."
