@@ -57,7 +57,6 @@ function fixture() {
     base,
     [base],
     {
-      id: "derived",
       name: "Derived",
       now: "2026-10-01T00:00:00.000Z"
     }
