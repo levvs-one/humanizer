@@ -71,6 +71,7 @@ docs/
   provider-runtime.md
   profiles.md
   cli.md
+  workspace.md
 ```
 
 ## Development

@@ -78,6 +78,17 @@ export {
 } from "./prompt-ir"
 export type { PromptIR, PromptIRBlock, PromptIRBlockId } from "./prompt-ir"
 export { SURFACES, getSurface, resolveCharacterLimit } from "./registry"
+export {
+  WORKSPACE_SCHEMA_VERSION,
+  createWorkspaceDocument,
+  parseWorkspaceDocument,
+  serializeWorkspaceDocument
+} from "./workspace"
+export type {
+  CreateWorkspaceInput,
+  WorkspaceDocument
+} from "./workspace"
+
 export type {
   BehaviorProfile,
   CharacterLimit,
