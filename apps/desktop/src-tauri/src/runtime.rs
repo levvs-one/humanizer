@@ -354,6 +354,10 @@ fn build_openai_payload(request: &ExecutePromptRequest) -> Result<Value, String>
             payload["max_output_tokens"] = json!(limit);
         }
 
+        if request.web_search {
+            payload["tools"] = json!([{ "type": "web_search" }]);
+        }
+
         return Ok(payload);
     }
 
@@ -377,6 +381,10 @@ fn build_openai_payload(request: &ExecutePromptRequest) -> Result<Value, String>
         payload["max_output_tokens"] = json!(limit);
     }
 
+    if request.web_search {
+        payload["tools"] = json!([{ "type": "web_search" }]);
+    }
+
     Ok(payload)
 }
 
@@ -396,14 +404,25 @@ fn build_anthropic_payload(request: &ExecutePromptRequest) -> Result<Value, Stri
             return Err("User prompt surfaces do not support continuation history.".to_string());
         }
 
-        return Ok(json!({
+        let mut payload = json!({
             "model": request.model,
             "max_tokens": max_tokens,
             "messages": [{
                 "role": "user",
                 "content": request.prompt
             }]
-        }));
+        });
+
+        if request.web_search {
+            payload["tools"] = json!([{
+                "type": "web_search_20260318",
+                "name": "web_search",
+                "max_uses": 5,
+                "allowed_callers": ["direct"]
+            }]);
+        }
+
+        return Ok(payload);
     }
 
     let mut messages = validated_history(request)?
@@ -415,12 +434,23 @@ fn build_anthropic_payload(request: &ExecutePromptRequest) -> Result<Value, Stri
         text: runtime_input(request)?.to_string(),
     }));
 
-    Ok(json!({
+    let mut payload = json!({
         "model": request.model,
         "max_tokens": max_tokens,
         "system": request.prompt,
         "messages": messages
-    }))
+    });
+
+    if request.web_search {
+        payload["tools"] = json!([{
+            "type": "web_search_20260318",
+            "name": "web_search",
+            "max_uses": 5,
+            "allowed_callers": ["direct"]
+        }]);
+    }
+
+    Ok(payload)
 }
 
 fn google_content(message: &RuntimeMessage) -> Value {
@@ -451,6 +481,10 @@ fn build_google_payload(request: &ExecutePromptRequest) -> Result<Value, String>
             });
         }
 
+        if request.web_search {
+            payload["tools"] = json!([{ "google_search": {} }]);
+        }
+
         return Ok(payload);
     }
 
@@ -474,6 +508,10 @@ fn build_google_payload(request: &ExecutePromptRequest) -> Result<Value, String>
         payload["generationConfig"] = json!({
             "maxOutputTokens": limit
         });
+    }
+
+    if request.web_search {
+        payload["tools"] = json!([{ "google_search": {} }]);
     }
 
     Ok(payload)
