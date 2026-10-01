@@ -641,7 +641,24 @@ fn google_citations(body: &Value) -> Vec<RuntimeCitation> {
         .into_iter()
         .flatten()
         .filter_map(|chunk| chunk.get("web"))
-        .filter_map(runtime_citation)
+        .filter_map(|web| {
+            let url = web
+                .get("uri")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())?;
+            let title = web
+                .get("title")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .unwrap_or(url);
+
+            Some(RuntimeCitation {
+                url: url.to_string(),
+                title: title.to_string(),
+            })
+        })
         .collect::<Vec<_>>();
 
     dedupe_citations(citations)
