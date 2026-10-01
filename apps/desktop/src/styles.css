@@ -1305,6 +1305,43 @@ select:focus {
   word-break: break-word;
 }
 
+.runtime-tool-toggle {
+  margin-bottom: 16px;
+}
+
+.research-sources {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.research-sources > strong {
+  margin: 0;
+  color: #6f6f74;
+  font-size: 10.5px;
+  font-weight: 620;
+}
+
+.research-source-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.research-source-list a {
+  color: #4d4d52;
+  font-size: 10.5px;
+  line-height: 1.4;
+  text-decoration: underline;
+  text-decoration-color: #c2c2c7;
+  text-underline-offset: 3px;
+}
+
+.research-source-list a:hover {
+  color: #171719;
+  text-decoration-color: #6f6f74;
+}
+
 
 .count-row-actions {
   display: flex;
