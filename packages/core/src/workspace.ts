@@ -191,9 +191,9 @@ export function createWorkspaceDocument(
     exportedAt: input.exportedAt ?? new Date().toISOString(),
     activeProfileId,
     activeDraftId,
-    profiles: structuredClone(input.profiles),
-    projects: structuredClone(input.projects),
-    drafts: structuredClone(input.drafts)
+    profiles: input.profiles.map((profile) => structuredClone(profile)),
+    projects: input.projects.map((project) => structuredClone(project)),
+    drafts: input.drafts.map((draft) => structuredClone(draft))
   })
 }
 
