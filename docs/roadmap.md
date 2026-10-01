@@ -21,15 +21,17 @@ The roadmap is ordered by dependency, not by visual appeal.
 - credential verification
 - native OpenAI, Anthropic, and Gemini execution adapters
 - exact provider token preflight where a supported counting endpoint exists
-- streaming provider execution with cancellation
+- streaming provider execution with immediate cancellation
+- project and model-specific behavior override scopes
+- reusable durable multi-turn Studio runtime
+- model-specific compiler refinements
+- command-line compiler for terminals and CI
 
 ## Next
 
-- project and model-specific profile overrides
-- model-specific compiler refinements
-- reusable conversation runtime
 - MCP server
-- CLI
+- richer model-specific compiler policies where provider guidance supports them
+- reusable runtime package boundary when desktop and MCP/CLI needs genuinely converge
 
 ## Later
 
