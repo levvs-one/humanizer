@@ -4,6 +4,9 @@ import {
   compilePrompt,
   MODELS,
   parseProfileDocument,
+  parseProjectDocument,
+  parsePromptDraftDocument,
+  resolveBehaviorScopes,
   SURFACES,
   type PlanId,
   type PromptBrief,
@@ -13,6 +16,8 @@ import {
 
 const VALUE_OPTIONS = new Set([
   "profile",
+  "project",
+  "draft",
   "surface",
   "model",
   "plan",
@@ -59,31 +64,48 @@ function helpText(): string {
 Usage:
   humanizer models [--json]
   humanizer targets [--json]
-  humanizer compile --profile <file> --surface <id> [options]
+  humanizer compile --profile <file> [--project <file>] [--draft <file>] [options]
 
-Compile options:
-  --model <id>             Model metadata used for compatibility and diagnostics
-  --plan <id>              free|go|plus|pro|business|enterprise|education
-  --optimization <mode>    compact|balanced|maximum-fidelity
-  --task <text>            Concrete task
-  --context <text>         Task context
-  --output <text>          Expected output
-  --constraints <text>     Hard task constraints
-  --purpose <purpose>      general|engineering|research|writing|agent
-  --artifact               Emit target-aware text/JSON artifact instead of prompt text
-  --out <file>             Write output to a file instead of stdout
-  --quiet                  Suppress warnings and diagnostics on stderr
+Compile inputs:
+  --profile <file>          Independent exported behavior profile
+  --project <file>          Optional exported project scope
+  --draft <file>            Optional exported Prompt Studio draft
+
+Target options:
+  --surface <id>            Required unless the draft supplies a target surface
+  --model <id>              Overrides the draft model when supplied
+  --plan <id>               free|go|plus|pro|business|enterprise|education
+  --optimization <mode>     compact|balanced|maximum-fidelity
+
+Task options:
+  --task <text>             Concrete task; overrides the draft goal
+  --context <text>          Task context; overrides the draft context
+  --output <text>           Expected output; overrides the draft output
+  --constraints <text>      Hard constraints; overrides draft constraints
+  --purpose <purpose>       general|engineering|research|writing|agent
+
+Output options:
+  --artifact                Emit target-aware text/JSON artifact instead of prompt text
+  --out <file>              Write output to a file instead of stdout
+  --quiet                   Suppress warnings and diagnostics on stderr
 
 Examples:
-  humanizer models
-  humanizer targets --json
-  humanizer compile --profile ./engineer.humanizer.json \\
-    --surface openai-api-developer --model gpt-5.6-sol \\
+  humanizer compile --profile ./engineer.humanizer.json \
+    --surface openai-api-developer --model gpt-5.6-sol \
     --task "Review this implementation" --optimization balanced
+
+  humanizer compile --profile ./engineer.humanizer.json \
+    --project ./payments.humanizer-project.json \
+    --draft ./retry-review.humanizer-prompt.json
+
+  humanizer compile --profile ./engineer.humanizer.json \
+    --project ./payments.humanizer-project.json \
+    --draft ./retry-review.humanizer-prompt.json \
+    --model claude-sonnet-5 --surface anthropic-api-system
 
 Exit codes:
   0  Compiled successfully
-  1  Invalid CLI input or unreadable file
+  1  Invalid CLI input, incompatible documents, or unreadable file
   2  Compilation completed with a blocking diagnostic or target overflow
 `
 }
@@ -198,21 +220,142 @@ function listTargets(json: boolean): void {
   }
 }
 
-async function compile(options: Options): Promise<void> {
-  const profilePath = stringOption(options, "profile", true)!
-  const surfaceId = stringOption(options, "surface", true)!
-  const modelId = stringOption(options, "model")
-  const plan = enumOption(stringOption(options, "plan"), PLANS, "plan")
-  const optimization = enumOption(
-    stringOption(options, "optimization"),
-    OPTIMIZATIONS,
-    "optimization"
-  )
+function validateDocumentLinks(
+  profileId: string,
+  projectId: string | undefined,
+  draft:
+    | {
+        profileId: string
+        projectId: string | null
+      }
+    | undefined
+): void {
+  if (!draft) {
+    return
+  }
+
+  if (draft.profileId !== profileId) {
+    throw new Error(
+      "Draft profileId " +
+        JSON.stringify(draft.profileId) +
+        " does not match profile id " +
+        JSON.stringify(profileId) +
+        "."
+    )
+  }
+
+  if (draft.projectId === null && projectId !== undefined) {
+    throw new Error(
+      "The draft does not reference a project, but --project was supplied."
+    )
+  }
+
+  if (draft.projectId !== null && projectId === undefined) {
+    throw new Error(
+      "The draft references project " +
+        JSON.stringify(draft.projectId) +
+        ". Supply the matching --project file."
+    )
+  }
+
+  if (draft.projectId !== null && projectId !== draft.projectId) {
+    throw new Error(
+      "Draft projectId " +
+        JSON.stringify(draft.projectId) +
+        " does not match project id " +
+        JSON.stringify(projectId) +
+        "."
+    )
+  }
+}
+
+function resolveBrief(
+  options: Options,
+  draftBrief: PromptBrief | undefined
+): PromptBrief | undefined {
+  const task = stringOption(options, "task")
+  const context = stringOption(options, "context")
+  const output = stringOption(options, "output")
+  const constraints = stringOption(options, "constraints")
   const purpose = enumOption(
     stringOption(options, "purpose"),
     PURPOSES,
     "purpose"
   )
+
+  const hasCliBrief =
+    task !== undefined ||
+    context !== undefined ||
+    output !== undefined ||
+    constraints !== undefined ||
+    purpose !== undefined
+
+  if (!draftBrief && !hasCliBrief) {
+    return undefined
+  }
+
+  return {
+    goal: task ?? draftBrief?.goal ?? "",
+    context: context ?? draftBrief?.context ?? "",
+    output: output ?? draftBrief?.output ?? "",
+    constraints: constraints ?? draftBrief?.constraints ?? "",
+    ...(purpose !== undefined
+      ? { purpose }
+      : draftBrief?.purpose !== undefined
+        ? { purpose: draftBrief.purpose }
+        : {})
+  }
+}
+
+async function compile(options: Options): Promise<void> {
+  const profilePath = stringOption(options, "profile", true)!
+  const projectPath = stringOption(options, "project")
+  const draftPath = stringOption(options, "draft")
+
+  const profileDocument = parseProfileDocument(
+    await readFile(profilePath, "utf8")
+  )
+  if (
+    profileDocument.baseProfileId !== null ||
+    profileDocument.inheritedFields.length > 0
+  ) {
+    throw new Error(
+      "This profile still depends on a base profile. Export an independent/detached profile before compiling it with the CLI."
+    )
+  }
+
+  const projectDocument = projectPath
+    ? parseProjectDocument(await readFile(projectPath, "utf8"))
+    : undefined
+  const draftDocument = draftPath
+    ? parsePromptDraftDocument(await readFile(draftPath, "utf8"))
+    : undefined
+
+  validateDocumentLinks(
+    profileDocument.id,
+    projectDocument?.id,
+    draftDocument
+  )
+
+  const surfaceId =
+    stringOption(options, "surface") ?? draftDocument?.target.surfaceId
+  if (!surfaceId) {
+    throw new Error(
+      "Missing required option --surface. Supply a target surface or a draft that contains one."
+    )
+  }
+
+  const modelId =
+    stringOption(options, "model") ?? draftDocument?.target.modelId
+  const plan =
+    enumOption(stringOption(options, "plan"), PLANS, "plan") ??
+    draftDocument?.target.plan
+  const optimization =
+    enumOption(
+      stringOption(options, "optimization"),
+      OPTIMIZATIONS,
+      "optimization"
+    ) ?? draftDocument?.target.optimization
 
   if (!SURFACES.some((surface) => surface.id === surfaceId)) {
     throw new Error(
@@ -226,36 +369,16 @@ async function compile(options: Options): Promise<void> {
     )
   }
 
-  const document = parseProfileDocument(await readFile(profilePath, "utf8"))
-  if (document.baseProfileId !== null || document.inheritedFields.length > 0) {
-    throw new Error(
-      "This profile still depends on a base profile. Export an independent/detached profile before compiling it with the CLI."
-    )
-  }
+  const { effectiveProfile } = resolveBehaviorScopes({
+    profile: profileDocument.profile,
+    project: projectDocument,
+    modelId,
+    taskOverrides: draftDocument?.behaviorOverrides
+  })
 
-  const task = stringOption(options, "task") ?? ""
-  const context = stringOption(options, "context") ?? ""
-  const output = stringOption(options, "output") ?? ""
-  const constraints = stringOption(options, "constraints") ?? ""
-  const hasBrief =
-    task.length > 0 ||
-    context.length > 0 ||
-    output.length > 0 ||
-    constraints.length > 0 ||
-    purpose !== undefined
-
-  const brief: PromptBrief | undefined = hasBrief
-    ? {
-        goal: task,
-        context,
-        output,
-        constraints,
-        ...(purpose ? { purpose } : {})
-      }
-    : undefined
-
+  const brief = resolveBrief(options, draftDocument?.brief)
   const result = compilePrompt({
-    profile: document.profile,
+    profile: effectiveProfile,
     ...(brief ? { brief } : {}),
     target: {
       surfaceId,
