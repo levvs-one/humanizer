@@ -1212,6 +1212,7 @@ mod tests {
     use super::{
         anthropic_stream_event, build_anthropic_count_payload, build_anthropic_payload,
         build_google_count_payload, build_google_payload, build_openai_payload,
+        anthropic_stream_citations, google_stream_citations, openai_stream_citations,
         google_stream_event, openai_stream_event, parse_anthropic, parse_google, parse_openai,
         ExecutePromptRequest, RunCancellation, RuntimeMessage, SseDecoder, StreamUsage,
     };
@@ -1224,6 +1225,7 @@ mod tests {
             instruction_role: role.to_string(),
             prompt: "Compiled prompt".to_string(),
             max_output_tokens: None,
+            web_search: false,
             runtime_input: runtime_input.map(str::to_string),
             history: Vec::new(),
         }
@@ -1302,6 +1304,32 @@ mod tests {
         });
 
         assert!(build_openai_payload(&user).is_err());
+    }
+
+    #[test]
+    fn provider_payloads_enable_native_web_search() {
+        let mut openai = request("openai", "developer", Some("Find current data."));
+        openai.web_search = true;
+        let openai_payload = build_openai_payload(&openai).unwrap();
+        assert_eq!(openai_payload["tools"][0]["type"], "web_search");
+
+        let mut anthropic = request("anthropic", "system", Some("Find current data."));
+        anthropic.web_search = true;
+        let anthropic_payload = build_anthropic_payload(&anthropic).unwrap();
+        assert_eq!(
+            anthropic_payload["tools"][0]["type"],
+            "web_search_20260318"
+        );
+        assert_eq!(
+            anthropic_payload["tools"][0]["allowed_callers"][0],
+            "direct"
+        );
+        assert_eq!(anthropic_payload["tools"][0]["max_uses"], 5);
+
+        let mut google = request("google", "system", Some("Find current data."));
+        google.web_search = true;
+        let google_payload = build_google_payload(&google).unwrap();
+        assert!(google_payload["tools"][0].get("google_search").is_some());
     }
 
     #[test]
@@ -1399,6 +1427,57 @@ mod tests {
     }
 
     #[test]
+    fn stream_parsers_extract_provider_web_citations() {
+        let openai = json!({
+            "type": "response.output_text.annotation.added",
+            "annotation": {
+                "type": "url_citation",
+                "url": "https://example.com/openai",
+                "title": "OpenAI source"
+            }
+        });
+        assert_eq!(
+            openai_stream_citations(&openai)[0].url,
+            "https://example.com/openai"
+        );
+
+        let anthropic = json!({
+            "type": "content_block_delta",
+            "delta": {
+                "type": "citations_delta",
+                "citation": {
+                    "type": "web_search_result_location",
+                    "url": "https://example.com/claude",
+                    "title": "Claude source",
+                    "cited_text": "Evidence",
+                    "encrypted_index": "opaque"
+                }
+            }
+        });
+        assert_eq!(
+            anthropic_stream_citations(&anthropic)[0].title,
+            "Claude source"
+        );
+
+        let google = json!({
+            "candidates": [{
+                "groundingMetadata": {
+                    "groundingChunks": [{
+                        "web": {
+                            "uri": "https://example.com/gemini",
+                            "title": "Gemini source"
+                        }
+                    }]
+                }
+            }]
+        });
+        assert_eq!(
+            google_stream_citations(&google)[0].url,
+            "https://example.com/gemini"
+        );
+    }
+
+    #[test]
     fn stream_parsers_emit_only_visible_text_and_usage() {
         let mut openai_usage = StreamUsage::default();
         let openai_delta = json!({
@@ -1472,8 +1551,17 @@ mod tests {
             }
         });
 
-        assert_eq!(parse_openai(&openai).unwrap(), ("OpenAI answer".to_string(), Some(12), Some(7)));
-        assert_eq!(parse_anthropic(&anthropic).unwrap(), ("Claude answer".to_string(), Some(14), Some(9)));
-        assert_eq!(parse_google(&google).unwrap(), ("Gemini answer".to_string(), Some(16), Some(11)));
+        assert_eq!(
+            parse_openai(&openai).unwrap(),
+            ("OpenAI answer".to_string(), Some(12), Some(7), Vec::new())
+        );
+        assert_eq!(
+            parse_anthropic(&anthropic).unwrap(),
+            ("Claude answer".to_string(), Some(14), Some(9), Vec::new())
+        );
+        assert_eq!(
+            parse_google(&google).unwrap(),
+            ("Gemini answer".to_string(), Some(16), Some(11), Vec::new())
+        );
     }
 }
