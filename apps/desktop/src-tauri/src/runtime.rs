@@ -15,7 +15,7 @@ use tauri::{ipc::Channel, State};
 use crate::credentials::read_secret;
 
 const ANTHROPIC_VERSION: &str = "2023-06-01";
-const ANTHROPIC_MAX_TOKENS: u32 = 16_000;
+const ANTHROPIC_DEFAULT_MAX_TOKENS: u32 = 16_000;
 
 #[derive(Default)]
 pub struct RuntimeState {
@@ -213,6 +213,7 @@ pub struct ExecutePromptRequest {
     model: String,
     instruction_role: String,
     prompt: String,
+    max_output_tokens: Option<u32>,
     runtime_input: Option<String>,
     #[serde(default)]
     history: Vec<RuntimeMessage>,
@@ -268,6 +269,13 @@ fn validated_history(request: &ExecutePromptRequest) -> Result<Vec<RuntimeMessag
         .collect()
 }
 
+fn validated_max_output_tokens(request: &ExecutePromptRequest) -> Result<Option<u32>, String> {
+    match request.max_output_tokens {
+        Some(0) => Err("Maximum output tokens must be greater than zero.".to_string()),
+        value => Ok(value),
+    }
+}
+
 fn runtime_input(request: &ExecutePromptRequest) -> Result<&str, String> {
     request
         .runtime_input
@@ -290,16 +298,24 @@ fn openai_input_message(message: &RuntimeMessage) -> Value {
 }
 
 fn build_openai_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
+    let max_output_tokens = validated_max_output_tokens(request)?;
+
     if request.instruction_role == "user" {
         if !request.history.is_empty() || request.runtime_input.is_some() {
             return Err("User prompt surfaces do not support continuation history.".to_string());
         }
 
-        return Ok(json!({
+        let mut payload = json!({
             "model": request.model,
             "input": request.prompt,
             "store": false
-        }));
+        });
+
+        if let Some(limit) = max_output_tokens {
+            payload["max_output_tokens"] = json!(limit);
+        }
+
+        return Ok(payload);
     }
 
     let mut input = validated_history(request)?
@@ -311,12 +327,18 @@ fn build_openai_payload(request: &ExecutePromptRequest) -> Result<Value, String>
         text: runtime_input(request)?.to_string(),
     }));
 
-    Ok(json!({
+    let mut payload = json!({
         "model": request.model,
         "instructions": request.prompt,
         "input": input,
         "store": false
-    }))
+    });
+
+    if let Some(limit) = max_output_tokens {
+        payload["max_output_tokens"] = json!(limit);
+    }
+
+    Ok(payload)
 }
 
 fn anthropic_message(message: &RuntimeMessage) -> Value {
@@ -327,6 +349,9 @@ fn anthropic_message(message: &RuntimeMessage) -> Value {
 }
 
 fn build_anthropic_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
+    let max_tokens = validated_max_output_tokens(request)?
+        .unwrap_or(ANTHROPIC_DEFAULT_MAX_TOKENS);
+
     if request.instruction_role == "user" {
         if !request.history.is_empty() || request.runtime_input.is_some() {
             return Err("User prompt surfaces do not support continuation history.".to_string());
@@ -334,7 +359,7 @@ fn build_anthropic_payload(request: &ExecutePromptRequest) -> Result<Value, Stri
 
         return Ok(json!({
             "model": request.model,
-            "max_tokens": ANTHROPIC_MAX_TOKENS,
+            "max_tokens": max_tokens,
             "messages": [{
                 "role": "user",
                 "content": request.prompt
@@ -353,7 +378,7 @@ fn build_anthropic_payload(request: &ExecutePromptRequest) -> Result<Value, Stri
 
     Ok(json!({
         "model": request.model,
-        "max_tokens": ANTHROPIC_MAX_TOKENS,
+        "max_tokens": max_tokens,
         "system": request.prompt,
         "messages": messages
     }))
@@ -367,17 +392,27 @@ fn google_content(message: &RuntimeMessage) -> Value {
 }
 
 fn build_google_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
+    let max_output_tokens = validated_max_output_tokens(request)?;
+
     if request.instruction_role == "user" {
         if !request.history.is_empty() || request.runtime_input.is_some() {
             return Err("User prompt surfaces do not support continuation history.".to_string());
         }
 
-        return Ok(json!({
+        let mut payload = json!({
             "contents": [{
                 "role": "user",
                 "parts": [{ "text": request.prompt }]
             }]
-        }));
+        });
+
+        if let Some(limit) = max_output_tokens {
+            payload["generationConfig"] = json!({
+                "maxOutputTokens": limit
+            });
+        }
+
+        return Ok(payload);
     }
 
     let mut contents = validated_history(request)?
@@ -389,12 +424,20 @@ fn build_google_payload(request: &ExecutePromptRequest) -> Result<Value, String>
         text: runtime_input(request)?.to_string(),
     }));
 
-    Ok(json!({
+    let mut payload = json!({
         "system_instruction": {
             "parts": [{ "text": request.prompt }]
         },
         "contents": contents
-    }))
+    });
+
+    if let Some(limit) = max_output_tokens {
+        payload["generationConfig"] = json!({
+            "maxOutputTokens": limit
+        });
+    }
+
+    Ok(payload)
 }
 
 
@@ -409,8 +452,14 @@ fn build_anthropic_count_payload(request: &ExecutePromptRequest) -> Result<Value
 }
 
 fn build_google_count_payload(request: &ExecutePromptRequest) -> Result<Value, String> {
+    let mut payload = build_google_payload(request)?;
+
+    if let Some(object) = payload.as_object_mut() {
+        object.remove("generationConfig");
+    }
+
     Ok(json!({
-        "generateContentRequest": build_google_payload(request)?
+        "generateContentRequest": payload
     }))
 }
 
