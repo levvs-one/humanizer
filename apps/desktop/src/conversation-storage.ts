@@ -1,4 +1,4 @@
-import type { RuntimeMessage } from "./runtime"
+import type { RuntimeCitation, RuntimeMessage } from "./runtime"
 
 const STORAGE_KEY = "humanizer.conversations.v1"
 const SCHEMA_VERSION = 2 as const
@@ -32,6 +32,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+function isRuntimeCitation(value: unknown): value is RuntimeCitation {
+  return (
+    isRecord(value) &&
+    typeof value.url === "string" &&
+    value.url.trim().length > 0 &&
+    typeof value.title === "string" &&
+    value.title.trim().length > 0
+  )
+}
+
 function isRuntimeMessage(value: unknown): value is RuntimeMessage {
   if (!isRecord(value)) {
     return false
@@ -40,7 +50,10 @@ function isRuntimeMessage(value: unknown): value is RuntimeMessage {
   return (
     (value.role === "user" || value.role === "assistant") &&
     typeof value.text === "string" &&
-    value.text.trim().length > 0
+    value.text.trim().length > 0 &&
+    (value.citations === undefined ||
+      (Array.isArray(value.citations) &&
+        value.citations.every(isRuntimeCitation)))
   )
 }
 
