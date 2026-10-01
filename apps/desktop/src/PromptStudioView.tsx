@@ -50,7 +50,8 @@ import {
   countProviderTokens,
   streamProviderPrompt,
   supportsExactTokenPreflight,
-  type ExecutePromptResponse
+  type ExecutePromptResponse,
+  type RuntimeCitation
 } from "./runtime"
 
 const plans: Array<{ value: PlanId; label: string }> = [
@@ -115,6 +116,30 @@ function PromptInspector({ diagnostics }: { diagnostics: PromptDiagnostic[] }) {
   )
 }
 
+function ResearchSources({ citations }: { citations: readonly RuntimeCitation[] }) {
+  if (citations.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="research-sources">
+      <strong>Sources</strong>
+      <div className="research-source-list">
+        {citations.map((citation) => (
+          <a
+            href={citation.url}
+            target="_blank"
+            rel="noreferrer"
+            key={citation.url}
+          >
+            {citation.title}
+          </a>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function createDefaultDraft(profileId: string): PromptDraftDocument {
   const model = MODELS[0]
   const surface = SURFACES[0]
@@ -164,6 +189,7 @@ export default function PromptStudioView({
   const [importError, setImportError] = useState<string | null>(null)
   const [runInputs, setRunInputs] = useState<Record<string, string>>({})
   const [runOutputLimits, setRunOutputLimits] = useState<Record<string, string>>({})
+  const [runWebSearch, setRunWebSearch] = useState<Record<string, boolean>>({})
   const [executing, setExecuting] = useState(false)
   const [activeRunId, setActiveRunId] = useState<string | null>(null)
   const invalidatedRunIds = useRef<Set<string>>(new Set())
@@ -358,6 +384,9 @@ export default function PromptStudioView({
   const requiresRuntimeInput = activeSurface.instructionRole !== "user"
   const supportsConversation = isApiTarget && requiresRuntimeInput
   const runtimeInput = runInputs[activeDraft.id] ?? ""
+  const webResearchAllowed = effectiveProfile.tools.usage !== "off"
+  const webSearchEnabled =
+    webResearchAllowed && (runWebSearch[activeDraft.id] ?? true)
   const outputLimitInput = runOutputLimits[activeDraft.id] ?? ""
   const parsedOutputLimit =
     outputLimitInput.trim() === "" ? null : Number(outputLimitInput)
@@ -402,6 +431,7 @@ export default function PromptStudioView({
     activeSurface.id,
     result.text,
     requiresRuntimeInput ? runtimeInput : "",
+    webSearchEnabled ? "web-search" : "no-web-search",
     JSON.stringify(conversationHistory)
   ].join("\u0000")
   const currentTokenCount =
@@ -700,6 +730,7 @@ export default function PromptStudioView({
         model: activeModel.id,
         instructionRole: activeSurface.instructionRole,
         prompt: result.text,
+        ...(webSearchEnabled ? { webSearch: true } : {}),
         ...(requiresRuntimeInput ? { runtimeInput } : {}),
         ...(supportsConversation ? { history: conversationHistory } : {})
       })
@@ -739,6 +770,7 @@ export default function PromptStudioView({
       model: runModelId,
       instructionRole: runInstructionRole,
       prompt: runPromptText,
+      ...(webSearchEnabled ? { webSearch: true } : {}),
       ...(requestedMaxOutputTokens !== undefined
         ? { maxOutputTokens: requestedMaxOutputTokens }
         : {}),
@@ -798,7 +830,8 @@ export default function PromptStudioView({
         model: runModelId,
         text: "",
         inputTokens: null,
-        outputTokens: null
+        outputTokens: null,
+        citations: []
       }
     })
 
