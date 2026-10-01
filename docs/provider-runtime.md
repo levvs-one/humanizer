@@ -77,7 +77,7 @@ Humanizer uses Tauri IPC channels between the native runtime and the webview. Pr
 - Anthropic Messages runs use `stream: true` and consume only `text_delta` content blocks. Thinking deltas are not forwarded to the interface.
 - Gemini uses `streamGenerateContent?alt=sse` and consumes streamed `GenerateContentResponse` chunks.
 
-Each run receives a unique local run id. Cancel marks that run as cancelled in native state; the response stream is dropped on the next read boundary. Run state is removed whether the stream completes, fails, or is cancelled.
+Each run receives a unique local run id. Cancel signals the native request immediately. The Rust runtime races that signal against both the initial HTTP request and each pending SSE read, so a cancelled run does not wait for the provider to send another chunk before releasing the stream. Run state is removed whether the stream completes, fails, or is cancelled.
 
 Official references:
 
