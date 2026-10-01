@@ -45,3 +45,17 @@ The core API exposes:
 - `parseWorkspaceDocument`
 
 Desktop import/export can build on this API without duplicating validation logic.
+
+
+## Desktop backup and restore
+
+Settings exposes workspace export and restore on top of the same core parser.
+
+Import is a two-step operation:
+
+1. select a workspace file and validate it;
+2. review the document counts and explicitly replace the local workspace.
+
+Restore replaces saved profiles, projects, prompt drafts, and active selections. Saved conversation transcripts are cleared so history from the previous workspace cannot attach to an imported draft with the same id. Provider credentials remain in the operating-system credential store and are not changed.
+
+Desktop restore keeps a copy of the previously persisted local documents and conversations while writing the replacement. If a write fails, Humanizer attempts to restore the previous state before reporting the failure. After a successful replacement, the desktop interface reloads from the new local workspace.

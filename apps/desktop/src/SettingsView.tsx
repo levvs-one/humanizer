@@ -2,9 +2,10 @@ import {
   findStaleModelSources,
   findStaleTargetSources,
   MODELS,
-  SURFACES
+  SURFACES,
+  type WorkspaceDocument
 } from "@humanizer/core"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   deleteProviderApiKey,
   getCredentialStatus,
@@ -13,6 +14,12 @@ import {
   type CredentialProvider,
   type CredentialStatus
 } from "./credentials"
+import {
+  createLocalWorkspaceBackup,
+  downloadWorkspaceBackup,
+  parseWorkspaceBackup,
+  replaceLocalWorkspace
+} from "./workspace-storage"
 
 interface ProviderDefinition {
   id: CredentialProvider
@@ -178,10 +185,18 @@ function ProviderCredentialRow({
 }
 
 export default function SettingsView() {
+  const workspaceFileInput = useRef<HTMLInputElement>(null)
   const [statuses, setStatuses] = useState<CredentialStatus[]>([])
   const [utcDay, setUtcDay] = useState(currentUtcDay)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [workspaceBusy, setWorkspaceBusy] = useState(false)
+  const [pendingWorkspace, setPendingWorkspace] =
+    useState<WorkspaceDocument | null>(null)
+  const [workspaceMessage, setWorkspaceMessage] = useState<{
+    kind: "info" | "error"
+    text: string
+  } | null>(null)
 
   const configured = useMemo(
     () => new Map(statuses.map((status) => [status.provider, status.configured])),
@@ -213,6 +228,72 @@ export default function SettingsView() {
     ].sort((left, right) => right.ageDays - left.ageDays),
     [staleModels, staleTargets]
   )
+
+  function exportWorkspace() {
+    try {
+      const workspace = createLocalWorkspaceBackup()
+      downloadWorkspaceBackup(workspace)
+      setWorkspaceMessage({
+        kind: "info",
+        text:
+          "Workspace backup exported. Credentials and conversation transcripts were not included."
+      })
+    } catch (reason) {
+      setWorkspaceMessage({
+        kind: "error",
+        text: reason instanceof Error ? reason.message : String(reason)
+      })
+    }
+  }
+
+  async function previewWorkspace(file: File | undefined) {
+    if (!file) {
+      return
+    }
+
+    setWorkspaceBusy(true)
+    setWorkspaceMessage(null)
+
+    try {
+      const workspace = parseWorkspaceBackup(await file.text())
+      setPendingWorkspace(workspace)
+      setWorkspaceMessage({
+        kind: "info",
+        text: "Workspace validated. Review the contents before replacing local data."
+      })
+    } catch (reason) {
+      setPendingWorkspace(null)
+      setWorkspaceMessage({
+        kind: "error",
+        text: reason instanceof Error ? reason.message : String(reason)
+      })
+    } finally {
+      setWorkspaceBusy(false)
+      if (workspaceFileInput.current) {
+        workspaceFileInput.current.value = ""
+      }
+    }
+  }
+
+  function restoreWorkspace() {
+    if (!pendingWorkspace || workspaceBusy) {
+      return
+    }
+
+    setWorkspaceBusy(true)
+    setWorkspaceMessage(null)
+
+    try {
+      replaceLocalWorkspace(pendingWorkspace)
+      window.location.reload()
+    } catch (reason) {
+      setWorkspaceBusy(false)
+      setWorkspaceMessage({
+        kind: "error",
+        text: reason instanceof Error ? reason.message : String(reason)
+      })
+    }
+  }
 
   async function refresh() {
     try {
@@ -302,6 +383,100 @@ export default function SettingsView() {
               />
             ))}
           </div>
+        </section>
+
+        <section className="settings-section">
+          <div className="settings-section-heading">
+            <h2>Workspace backup</h2>
+            <p>
+              Export or restore profiles, projects, drafts, and active selections as one
+              validated JSON bundle. Provider credentials and conversation transcripts are
+              never included.
+            </p>
+          </div>
+
+          <input
+            ref={workspaceFileInput}
+            className="visually-hidden"
+            type="file"
+            accept=".json,application/json"
+            onChange={(event) => void previewWorkspace(event.target.files?.[0])}
+          />
+
+          <div className="provider-actions">
+            <button
+              className="primary-button"
+              type="button"
+              disabled={workspaceBusy}
+              onClick={exportWorkspace}
+            >
+              Export workspace
+            </button>
+            <button
+              className="secondary-button"
+              type="button"
+              disabled={workspaceBusy}
+              onClick={() => workspaceFileInput.current?.click()}
+            >
+              Import workspace
+            </button>
+          </div>
+
+          {workspaceMessage ? (
+            <p
+              className={
+                workspaceMessage.kind === "error"
+                  ? "runtime-error"
+                  : "provider-message"
+              }
+            >
+              {workspaceMessage.text}
+            </p>
+          ) : null}
+
+          {pendingWorkspace ? (
+            <section className="provider-row">
+              <div className="provider-copy">
+                <div className="provider-heading">
+                  <h2>Validated workspace</h2>
+                  <span className="credential-state">
+                    {pendingWorkspace.profiles.length} profiles ·{" "}
+                    {pendingWorkspace.projects.length} projects ·{" "}
+                    {pendingWorkspace.drafts.length} drafts
+                  </span>
+                </div>
+                <p>
+                  Exported {pendingWorkspace.exportedAt}. Replacing the workspace overwrites
+                  local profiles, projects, and drafts and clears saved conversation
+                  transcripts. Provider credentials stay unchanged.
+                </p>
+              </div>
+
+              <div className="provider-controls">
+                <div className="provider-actions">
+                  <button
+                    className="primary-button"
+                    type="button"
+                    disabled={workspaceBusy}
+                    onClick={restoreWorkspace}
+                  >
+                    Replace local workspace
+                  </button>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    disabled={workspaceBusy}
+                    onClick={() => {
+                      setPendingWorkspace(null)
+                      setWorkspaceMessage(null)
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </section>
+          ) : null}
         </section>
 
         <section className="settings-section">

@@ -64,9 +64,13 @@ export function loadActiveProfileId(): string | null {
   }
 }
 
-export function saveActiveProfileId(profileId: string): boolean {
+export function saveActiveProfileId(profileId: string | null): boolean {
   try {
-    window.localStorage.setItem(ACTIVE_PROFILE_KEY, profileId)
+    if (profileId === null) {
+      window.localStorage.removeItem(ACTIVE_PROFILE_KEY)
+    } else {
+      window.localStorage.setItem(ACTIVE_PROFILE_KEY, profileId)
+    }
     return true
   } catch {
     return false
