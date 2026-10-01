@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { findStaleTargetSources } from "./freshness"
-import type { PromptSurface } from "./types"
+import { findStaleModelSources, findStaleTargetSources } from "./freshness"
+import type { ModelDefinition, PromptSurface } from "./types"
 
 function surface(id: string, verifiedAt: string): PromptSurface {
   return {
@@ -13,6 +13,21 @@ function surface(id: string, verifiedAt: string): PromptSurface {
     source: {
       label: "Test source",
       url: "https://example.com",
+      verifiedAt
+    }
+  }
+}
+
+function model(id: string, verifiedAt: string): ModelDefinition {
+  return {
+    id,
+    provider: "openai",
+    label: "Test model",
+    contextWindowTokens: 1_000_000,
+    maxOutputTokens: 100_000,
+    source: {
+      label: "Test model source",
+      url: "https://example.com/model",
       verifiedAt
     }
   }
@@ -62,6 +77,25 @@ describe("registry freshness", () => {
 
     expect(month[0]?.ageDays).toBe(29)
     expect(year[0]?.ageDays).toBe(2)
+  })
+
+  it("reports stale model metadata independently from target surfaces", () => {
+    expect(
+      findStaleModelSources(
+        [
+          model("fresh-model", "2026-09-20"),
+          model("stale-model", "2026-05-01")
+        ],
+        "2026-09-30",
+        90
+      )
+    ).toEqual([
+      {
+        modelId: "stale-model",
+        verifiedAt: "2026-05-01",
+        ageDays: 152
+      }
+    ])
   })
 
   it("rejects invalid reference dates and thresholds", () => {

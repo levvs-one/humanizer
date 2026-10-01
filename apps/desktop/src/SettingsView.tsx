@@ -1,4 +1,9 @@
-import { findStaleTargetSources, SURFACES } from "@humanizer/core"
+import {
+  findStaleModelSources,
+  findStaleTargetSources,
+  MODELS,
+  SURFACES
+} from "@humanizer/core"
 import { useEffect, useMemo, useState } from "react"
 import {
   deleteProviderApiKey,
@@ -187,6 +192,27 @@ export default function SettingsView() {
     () => findStaleTargetSources(SURFACES, utcDay, 90),
     [utcDay]
   )
+  const staleModels = useMemo(
+    () => findStaleModelSources(MODELS, utcDay, 90),
+    [utcDay]
+  )
+  const staleRegistryEntries = useMemo(
+    () => [
+      ...staleModels.map((entry) => ({
+        kind: "model" as const,
+        id: entry.modelId,
+        verifiedAt: entry.verifiedAt,
+        ageDays: entry.ageDays
+      })),
+      ...staleTargets.map((entry) => ({
+        kind: "surface" as const,
+        id: entry.targetId,
+        verifiedAt: entry.verifiedAt,
+        ageDays: entry.ageDays
+      }))
+    ].sort((left, right) => right.ageDays - left.ageDays),
+    [staleModels, staleTargets]
+  )
 
   async function refresh() {
     try {
@@ -282,40 +308,56 @@ export default function SettingsView() {
           <div className="settings-section-heading">
             <h2>Registry health</h2>
             <p>
-              Target metadata is source-backed. Entries older than 90 days are flagged for
-              re-verification instead of being silently treated as current forever.
+              Model and target metadata are source-backed. Entries older than 90 days are
+              flagged for re-verification instead of being silently treated as current forever.
             </p>
           </div>
 
-          {staleTargets.length === 0 ? (
+          {staleRegistryEntries.length === 0 ? (
             <p className="prompt-inspector-empty">
-              All {SURFACES.length} target surfaces were verified within the last 90 days.
+              All {MODELS.length} models and {SURFACES.length} target surfaces were verified
+              within the last 90 days.
             </p>
           ) : (
             <div className="provider-list">
-              {staleTargets.map((entry) => {
-                const surface = SURFACES.find((candidate) => candidate.id === entry.targetId)
-                if (!surface) return null
+              {staleRegistryEntries.map((entry) => {
+                const source =
+                  entry.kind === "model"
+                    ? MODELS.find((candidate) => candidate.id === entry.id)
+                    : SURFACES.find((candidate) => candidate.id === entry.id)
+
+                if (!source) return null
+
+                const title =
+                  entry.kind === "model"
+                    ? source.label
+                    : "product" in source
+                      ? source.product + " " + source.label
+                      : source.label
 
                 return (
-                  <section className="provider-row" key={entry.targetId}>
+                  <section
+                    className="provider-row"
+                    key={entry.kind + ":" + entry.id}
+                  >
                     <div className="provider-copy">
                       <div className="provider-heading">
-                        <h2>{surface.product} {surface.label}</h2>
+                        <h2>{title}</h2>
                         <span className="credential-state">
                           {entry.ageDays} days old
                         </span>
                       </div>
                       <p>
-                        Verified {entry.verifiedAt}. Re-check the official source before changing
-                        limits or capabilities.
+                        {entry.kind === "model" ? "Model metadata" : "Target metadata"} verified{" "}
+                        {entry.verifiedAt}. Re-check the official source before changing limits
+                        or capabilities.
                       </p>
                     </div>
 
                     <div className="provider-controls">
                       <a
                         className="secondary-button"
-                        href={surface.source.url}
+                        href={source.source.url}
                         target="_blank"
                         rel="noreferrer"
                       >
