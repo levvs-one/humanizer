@@ -932,6 +932,7 @@ async fn stream_response(
 
     let mut decoder = SseDecoder::default();
     let mut usage = StreamUsage::default();
+    let mut seen_citations = HashSet::new();
     let mut stream = response.bytes_stream();
 
     loop {
@@ -953,6 +954,19 @@ async fn stream_response(
         for event in decoder.push(&chunk)? {
             if cancellation.is_cancelled() {
                 return Ok(usage);
+            }
+
+            let citations = match provider {
+                "openai" => openai_stream_citations(&event),
+                "anthropic" => anthropic_stream_citations(&event),
+                "google" => google_stream_citations(&event),
+                _ => Vec::new(),
+            };
+
+            for citation in citations {
+                if seen_citations.insert(citation.url.clone()) {
+                    let _ = on_event.send(ProviderStreamEvent::Citation { citation });
+                }
             }
 
             let delta = match provider {
