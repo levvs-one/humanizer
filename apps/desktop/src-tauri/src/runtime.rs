@@ -569,6 +569,124 @@ async fn response_json(response: Response) -> Result<Value, String> {
     Ok(body)
 }
 
+fn runtime_citation(value: &Value) -> Option<RuntimeCitation> {
+    let url = value
+        .get("url")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())?;
+    let title = value
+        .get("title")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(url);
+
+    Some(RuntimeCitation {
+        url: url.to_string(),
+        title: title.to_string(),
+    })
+}
+
+fn dedupe_citations(citations: Vec<RuntimeCitation>) -> Vec<RuntimeCitation> {
+    let mut seen = HashSet::new();
+
+    citations
+        .into_iter()
+        .filter(|citation| seen.insert(citation.url.clone()))
+        .collect()
+}
+
+fn openai_citations(body: &Value) -> Vec<RuntimeCitation> {
+    let citations = body
+        .get("output")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|item| item.get("content").and_then(Value::as_array))
+        .flatten()
+        .filter_map(|part| part.get("annotations").and_then(Value::as_array))
+        .flatten()
+        .filter(|annotation| {
+            annotation.get("type").and_then(Value::as_str) == Some("url_citation")
+        })
+        .filter_map(runtime_citation)
+        .collect::<Vec<_>>();
+
+    dedupe_citations(citations)
+}
+
+fn anthropic_citations(body: &Value) -> Vec<RuntimeCitation> {
+    let citations = body
+        .get("content")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|part| part.get("citations").and_then(Value::as_array))
+        .flatten()
+        .filter(|citation| {
+            citation.get("type").and_then(Value::as_str)
+                == Some("web_search_result_location")
+        })
+        .filter_map(runtime_citation)
+        .collect::<Vec<_>>();
+
+    dedupe_citations(citations)
+}
+
+fn google_citations(body: &Value) -> Vec<RuntimeCitation> {
+    let citations = body
+        .pointer("/candidates/0/groundingMetadata/groundingChunks")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|chunk| chunk.get("web"))
+        .filter_map(runtime_citation)
+        .collect::<Vec<_>>();
+
+    dedupe_citations(citations)
+}
+
+fn openai_stream_citations(event: &Value) -> Vec<RuntimeCitation> {
+    if event.get("type").and_then(Value::as_str)
+        != Some("response.output_text.annotation.added")
+    {
+        return Vec::new();
+    }
+
+    event
+        .get("annotation")
+        .filter(|annotation| {
+            annotation.get("type").and_then(Value::as_str) == Some("url_citation")
+        })
+        .and_then(runtime_citation)
+        .into_iter()
+        .collect()
+}
+
+fn anthropic_stream_citations(event: &Value) -> Vec<RuntimeCitation> {
+    if event.get("type").and_then(Value::as_str) != Some("content_block_delta")
+        || event.pointer("/delta/type").and_then(Value::as_str)
+            != Some("citations_delta")
+    {
+        return Vec::new();
+    }
+
+    event
+        .pointer("/delta/citation")
+        .filter(|citation| {
+            citation.get("type").and_then(Value::as_str)
+                == Some("web_search_result_location")
+        })
+        .and_then(runtime_citation)
+        .into_iter()
+        .collect()
+}
+
+fn google_stream_citations(event: &Value) -> Vec<RuntimeCitation> {
+    google_citations(event)
+}
+
 fn parse_openai(body: &Value) -> Result<(String, Option<u64>, Option<u64>), String> {
     let text = body
         .get("output")
