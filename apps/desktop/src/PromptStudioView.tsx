@@ -1545,6 +1545,28 @@ export default function PromptStudioView({
                 </div>
               ) : null}
 
+              <label className="toggle-row runtime-tool-toggle">
+                <span>
+                  <strong>Allow web research</strong>
+                  <small>
+                    {webResearchAllowed
+                      ? "Make the provider's native web search tool available for this run. Search calls may have provider costs; cited sources are shown with the response."
+                      : "Disabled by the effective tool policy. Change Tool use from Off to allow provider web search."}
+                  </small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={webSearchEnabled}
+                  disabled={!webResearchAllowed || executing}
+                  onChange={(event) =>
+                    setRunWebSearch((current) => ({
+                      ...current,
+                      [activeDraft.id]: event.target.checked
+                    }))
+                  }
+                />
+              </label>
+
               <div className="field">
                 <div className="field-heading">
                   <label>Max output tokens</label>
@@ -1712,6 +1734,9 @@ export default function PromptStudioView({
                   <div className={"conversation-message " + message.role} key={index}>
                     <strong>{message.role === "user" ? "You" : activeModel.label}</strong>
                     <p>{message.text}</p>
+                    {message.role === "assistant" ? (
+                      <ResearchSources citations={message.citations ?? []} />
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -1725,6 +1750,7 @@ export default function PromptStudioView({
                 <span>{activeModel.label}</span>
               </div>
               <pre>{currentExecution.text}</pre>
+              <ResearchSources citations={currentExecution.citations} />
               {(currentExecution.inputTokens !== null ||
                 currentExecution.outputTokens !== null) ? (
                 <dl>
