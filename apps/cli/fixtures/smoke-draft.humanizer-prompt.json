@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 3,
+  "id": "cli-smoke-draft",
+  "name": "CLI Smoke Draft",
+  "profileId": "cli-smoke-profile",
+  "projectId": "cli-smoke-project",
+  "behaviorOverrides": {
+    "customRules": [
+      "Preserve idempotency semantics."
+    ]
+  },
+  "target": {
+    "surfaceId": "openai-api-developer",
+    "modelId": "gpt-5.6-sol",
+    "optimization": "balanced"
+  },
+  "brief": {
+    "goal": "Review payment retry logic.",
+    "context": "The worker retries after transient provider failures.",
+    "output": "Return the smallest safe change.",
+    "constraints": "Do not introduce duplicate charges."
+  },
+  "createdAt": "2026-10-01T00:00:00.000Z",
+  "updatedAt": "2026-10-01T00:00:00.000Z"
+}

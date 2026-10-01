@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from "react"
 import {
-  applyBehaviorOverrideLayers,
   buildTargetExport,
   compilePrompt,
   createProjectDocument,
   createPromptDraftDocument,
   duplicatePromptDraftDocument,
-  getProjectModelOverrides,
   MODELS,
   parsePromptDraftDocument,
   repairPromptDraftReferences,
+  resolveBehaviorScopes,
   SURFACES,
   updatePromptDraftDocument,
   type BehaviorFieldPath,
@@ -328,22 +327,16 @@ export default function PromptStudioView({
     activeDraft.projectId === null
       ? null
       : projects.find((project) => project.id === activeDraft.projectId) ?? null
-  const projectProfile = applyBehaviorOverrideLayers(
-    activeProfile.profile,
-    [activeProject?.behaviorOverrides ?? {}]
-  )
-  const modelBehaviorOverrides = getProjectModelOverrides(
-    activeProject,
-    activeModel.id
-  )
-  const modelProfile = applyBehaviorOverrideLayers(
+  const {
     projectProfile,
-    [modelBehaviorOverrides]
-  )
-  const effectiveProfile = applyBehaviorOverrideLayers(
     modelProfile,
-    [activeDraft.behaviorOverrides]
-  )
+    effectiveProfile
+  } = resolveBehaviorScopes({
+    profile: activeProfile.profile,
+    project: activeProject,
+    modelId: activeModel.id,
+    taskOverrides: activeDraft.behaviorOverrides
+  })
   const overrideCount = Object.keys(activeDraft.behaviorOverrides).length
   const activeSurface = surface
   const needsPlan = activeSurface.characterLimit.kind === "by-plan"

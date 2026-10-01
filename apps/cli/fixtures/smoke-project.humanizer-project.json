@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "id": "cli-smoke-project",
+  "name": "CLI Smoke Project",
+  "description": "Project scope fixture for CLI parity checks.",
+  "behaviorOverrides": {
+    "role": "Payments reliability engineer"
+  },
+  "modelOverrides": {
+    "gpt-5.6-sol": {
+      "objective": "Review payment systems without weakening idempotency."
+    }
+  },
+  "createdAt": "2026-10-01T00:00:00.000Z",
+  "updatedAt": "2026-10-01T00:00:00.000Z"
+}
