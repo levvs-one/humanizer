@@ -67,6 +67,11 @@ export type {
   ModelBehaviorOverrideMap,
   ProjectDocument
 } from "./project"
+export { resolveBehaviorScopes } from "./scopes"
+export type {
+  ScopedBehaviorInput,
+  ScopedBehaviorResolution
+} from "./scopes"
 export {
   PROMPT_IR_VERSION,
   buildPromptIR
