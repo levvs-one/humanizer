@@ -9,6 +9,7 @@ import {
   getProjectModelOverrides,
   MODELS,
   parsePromptDraftDocument,
+  repairPromptDraftReferences,
   SURFACES,
   updatePromptDraftDocument,
   type BehaviorFieldPath,
@@ -165,6 +166,7 @@ export default function PromptStudioView({
   const [runInputs, setRunInputs] = useState<Record<string, string>>({})
   const [executing, setExecuting] = useState(false)
   const [activeRunId, setActiveRunId] = useState<string | null>(null)
+  const invalidatedRunIds = useRef<Set<string>>(new Set())
   const [executionError, setExecutionError] = useState<string | null>(null)
   const [countingTokens, setCountingTokens] = useState(false)
   const [tokenCountError, setTokenCountError] = useState<string | null>(null)
@@ -226,6 +228,69 @@ export default function PromptStudioView({
       setConversationStorageAvailable(false)
     }
   }, [conversationSessions, conversationStorageAvailable])
+
+  useEffect(() => {
+    const fallbackProfileId =
+      profiles.some((profile) => profile.id === defaultProfileId)
+        ? defaultProfileId
+        : profiles[0]?.id
+
+    if (!fallbackProfileId) {
+      return
+    }
+
+    const context = {
+      profileIds: profiles.map((profile) => profile.id),
+      projectIds: projects.map((project) => project.id),
+      fallbackProfileId
+    }
+
+    const repairedDraftIds: string[] = []
+    const repairedDrafts = drafts.map((entry) => {
+      const repaired = repairPromptDraftReferences(entry, context)
+
+      if (repaired !== entry) {
+        repairedDraftIds.push(entry.id)
+      }
+
+      return repaired
+    })
+
+    if (repairedDraftIds.length === 0) {
+      return
+    }
+
+    if (
+      activeRunId &&
+      execution &&
+      repairedDraftIds.includes(execution.draftId)
+    ) {
+      invalidatedRunIds.current.add(activeRunId)
+      void cancelProviderStream(activeRunId).catch(() => undefined)
+      setActiveRunId(null)
+      setExecuting(false)
+    }
+
+    setDrafts(repairedDrafts)
+    setConversationSessions((current) =>
+      repairedDraftIds.reduce(
+        (sessions, draftId) =>
+          removeConversationSessionsForDraft(sessions, draftId),
+        current
+      )
+    )
+    setExecution((current) =>
+      current && repairedDraftIds.includes(current.draftId) ? null : current
+    )
+    setTokenCount(null)
+  }, [
+    drafts,
+    profiles,
+    projects,
+    defaultProfileId,
+    activeRunId,
+    execution
+  ])
 
   if (!draft) {
     return null
@@ -398,6 +463,21 @@ export default function PromptStudioView({
   }
 
   function deleteProject(projectId: string) {
+    const affectedDraftIds = drafts
+      .filter((entry) => entry.projectId === projectId)
+      .map((entry) => entry.id)
+
+    if (
+      activeRunId &&
+      execution &&
+      affectedDraftIds.includes(execution.draftId)
+    ) {
+      invalidatedRunIds.current.add(activeRunId)
+      void cancelProviderStream(activeRunId).catch(() => undefined)
+      setActiveRunId(null)
+      setExecuting(false)
+    }
+
     setProjects((current) => current.filter((project) => project.id !== projectId))
     setDrafts((current) =>
       current.map((entry) =>
@@ -406,6 +486,17 @@ export default function PromptStudioView({
           : entry
       )
     )
+    setConversationSessions((current) =>
+      affectedDraftIds.reduce(
+        (sessions, draftId) =>
+          removeConversationSessionsForDraft(sessions, draftId),
+        current
+      )
+    )
+    setExecution((current) =>
+      current && affectedDraftIds.includes(current.draftId) ? null : current
+    )
+    setTokenCount(null)
   }
 
   function setBehaviorOverride(
@@ -653,6 +744,10 @@ export default function PromptStudioView({
         },
         runId,
         (event) => {
+          if (invalidatedRunIds.current.has(runId)) {
+            return
+          }
+
           if (event.event === "delta") {
             completedText += event.data.text
             setExecution((current) => {
@@ -748,13 +843,16 @@ export default function PromptStudioView({
         }
       )
     } catch (reason) {
-      const message = reason instanceof Error ? reason.message : String(reason)
-      setExecutionError(
-        message.includes("No stored API key")
-          ? "No API key is configured for this provider. Add one in Settings."
-          : message
-      )
+      if (!invalidatedRunIds.current.has(runId)) {
+        const message = reason instanceof Error ? reason.message : String(reason)
+        setExecutionError(
+          message.includes("No stored API key")
+            ? "No API key is configured for this provider. Add one in Settings."
+            : message
+        )
+      }
     } finally {
+      invalidatedRunIds.current.delete(runId)
       setExecuting(false)
       setActiveRunId((current) => (current === runId ? null : current))
     }
