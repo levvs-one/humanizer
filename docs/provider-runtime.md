@@ -99,6 +99,47 @@ Prompt Studio can optionally set a maximum output-token budget for an API run.
 - Studio rejects non-positive values and values above the selected model's source-backed `maxOutputTokens` metadata.
 - Exact input token-count requests intentionally omit output-generation settings.
 
+## Provider-native web research
+
+Prompt Studio can make the selected provider's own web-search tool available for an API run when the effective behavior profile allows tools.
+
+The runtime maps one Humanizer switch to each provider's native API shape:
+
+- OpenAI Responses: `tools: [{ "type": "web_search" }]`.
+- Anthropic Messages: `web_search_20260318` with `allowed_callers: ["direct"]` and `max_uses: 5`.
+- Gemini Generate Content: `tools: [{ "google_search": {} }]`.
+
+The provider still decides whether a search is useful for a particular request. Humanizer does not synthesize search results or proxy search traffic through its own server.
+
+The effective tool policy is a hard local boundary:
+
+- `tools.usage = "off"` disables provider web research in Studio.
+- `when-useful` and `proactive` make the native search tool available by default; the user can turn it off for an individual run.
+- search availability is included in the exact token-preflight signature so stale counts are not reused across different tool configurations.
+
+Search calls can have provider-specific billing.
+
+### Research citations
+
+Provider search citations are returned through the native runtime as structured source records and rendered as clickable links in Prompt Studio.
+
+- OpenAI URL citation annotations are collected from Responses output and streaming annotation events.
+- Anthropic `web_search_result_location` citations are collected from message content and `citations_delta` stream events.
+- Gemini web grounding chunks are collected from `groundingMetadata.groundingChunks`.
+
+Duplicate source URLs are collapsed within a run. For multi-turn Studio sessions, assistant-message source links are saved alongside the local assistant text, so a restarted desktop session does not lose the source list.
+
+Humanizer currently renders a provider-neutral clickable Sources list. Provider-specific inline claim-to-source placement can be added later without changing the stored citation schema.
+
+Official references:
+
+- https://developers.openai.com/api/docs/guides/tools-web-search
+- https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool
+- https://platform.claude.com/docs/en/build-with-claude/citations
+- https://ai.google.dev/gemini-api/docs/generate-content/google-search
+
+Verified: 2026-10-01
+
 ## Conversation history
 
 Instruction-style API targets can carry local multi-turn history.
@@ -127,7 +168,7 @@ Provider retention and data-processing behavior remains subject to the provider 
 
 This runtime is for manually executing a compiled prompt from Prompt Studio.
 
-This is still a lightweight Studio runtime rather than the final agent runtime. Multi-turn message history and durable local Studio sessions are supported for instruction-style API targets, while tools, research routing, and agent loops remain separate runtime layers.
+This is still a lightweight Studio runtime rather than the final agent runtime. Multi-turn message history, durable local Studio sessions, and provider-native web research are supported for instruction-style API targets. Rich multi-step research routing, client-side tools, MCP execution, and agent loops remain separate runtime layers.
 
 
 ## Token preflight
