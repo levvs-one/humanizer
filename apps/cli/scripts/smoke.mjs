@@ -31,6 +31,25 @@ function run(args) {
   return result.stdout
 }
 
+function runFailure(args, expectedMessage) {
+  const result = spawnSync(process.execPath, [binary, ...args], {
+    encoding: "utf8"
+  })
+
+  if (result.status !== 1 || !result.stderr.includes(expectedMessage)) {
+    throw new Error(
+      "CLI failure smoke check failed: " +
+        args.join(" ") +
+        "\nstatus: " +
+        String(result.status) +
+        "\nstdout:\n" +
+        result.stdout +
+        "\nstderr:\n" +
+        result.stderr
+    )
+  }
+}
+
 if (!run(["help"]).includes("Humanizer CLI")) {
   throw new Error("CLI help smoke check failed.")
 }
@@ -89,3 +108,16 @@ for (const expected of [
     )
   }
 }
+
+
+runFailure(
+  [
+    "compile",
+    "--profile",
+    profile,
+    "--draft",
+    draft,
+    "--quiet"
+  ],
+  "Supply the matching --project file."
+)
