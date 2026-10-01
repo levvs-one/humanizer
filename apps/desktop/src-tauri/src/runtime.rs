@@ -81,7 +81,6 @@ pub enum ProviderStreamEvent {
 struct StreamUsage {
     input_tokens: Option<u64>,
     output_tokens: Option<u64>,
-    citations: Vec<RuntimeCitation>,
 }
 
 #[derive(Default)]
@@ -266,6 +265,7 @@ pub struct ExecutePromptResponse {
     text: String,
     input_tokens: Option<u64>,
     output_tokens: Option<u64>,
+    citations: Vec<RuntimeCitation>,
 }
 
 #[derive(Serialize)]
