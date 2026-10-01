@@ -80,6 +80,42 @@ humanizer compile \
   --out ./claude-system.json
 ```
 
+## Reproduce Prompt Studio scopes
+
+The CLI can compile the same scoped behavior stack as Prompt Studio:
+
+```text
+profile
+  + project overrides
+  + model-specific project overrides
+  + draft/task overrides
+  = effective behavior
+```
+
+Provide the exported profile, project, and draft together:
+
+```bash
+humanizer compile \
+  --profile ./principal-engineer.humanizer.json \
+  --project ./payments.humanizer-project.json \
+  --draft ./retry-review.humanizer-prompt.json
+```
+
+The draft supplies its target, model, optimization, and task brief unless explicit CLI flags override them. This makes matrix compilation straightforward:
+
+```bash
+humanizer compile \
+  --profile ./principal-engineer.humanizer.json \
+  --project ./payments.humanizer-project.json \
+  --draft ./retry-review.humanizer-prompt.json \
+  --model claude-sonnet-5 \
+  --surface anthropic-api-system
+```
+
+Document references are strict. If a draft names a profile or project id, the supplied files must match those ids. Humanizer fails with exit code 1 instead of silently dropping a scope or compiling against the wrong profile.
+
+A project can also be supplied without a draft to apply reusable project and model overrides to CLI task flags.
+
 ## Profile inheritance
 
 The CLI intentionally refuses unresolved derived profiles.
