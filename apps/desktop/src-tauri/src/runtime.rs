@@ -11,6 +11,7 @@ use std::{
     time::Duration,
 };
 use tauri::{ipc::Channel, State};
+use tokio::sync::Notify;
 
 use crate::credentials::read_secret;
 
@@ -18,8 +19,33 @@ const ANTHROPIC_VERSION: &str = "2023-06-01";
 const ANTHROPIC_DEFAULT_MAX_TOKENS: u32 = 16_000;
 
 #[derive(Default)]
+struct RunCancellation {
+    cancelled: AtomicBool,
+    notify: Notify,
+}
+
+impl RunCancellation {
+    fn cancel(&self) {
+        self.cancelled.store(true, Ordering::Relaxed);
+        self.notify.notify_one();
+    }
+
+    fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::Relaxed)
+    }
+
+    async fn cancelled(&self) {
+        if self.is_cancelled() {
+            return;
+        }
+
+        self.notify.notified().await;
+    }
+}
+
+#[derive(Default)]
 pub struct RuntimeState {
-    runs: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    runs: Mutex<HashMap<String, Arc<RunCancellation>>>,
 }
 
 #[derive(Clone, Serialize)]
@@ -714,7 +740,7 @@ async fn stream_response(
     response: Response,
     provider: &str,
     on_event: &Channel<ProviderStreamEvent>,
-    cancelled: &AtomicBool,
+    cancellation: &RunCancellation,
 ) -> Result<StreamUsage, String> {
     let status = response.status();
 
@@ -730,15 +756,24 @@ async fn stream_response(
     let mut usage = StreamUsage::default();
     let mut stream = response.bytes_stream();
 
-    while let Some(chunk) = stream.next().await {
-        if cancelled.load(Ordering::Relaxed) {
+    loop {
+        let next = tokio::select! {
+            _ = cancellation.cancelled() => return Ok(usage),
+            next = stream.next() => next,
+        };
+
+        let Some(chunk) = next else {
+            break;
+        };
+
+        if cancellation.is_cancelled() {
             return Ok(usage);
         }
 
         let chunk = chunk.map_err(network_error)?;
 
         for event in decoder.push(&chunk)? {
-            if cancelled.load(Ordering::Relaxed) {
+            if cancellation.is_cancelled() {
                 return Ok(usage);
             }
 
@@ -763,20 +798,21 @@ async fn stream_openai(
     request: &ExecutePromptRequest,
     secret: &str,
     on_event: &Channel<ProviderStreamEvent>,
-    cancelled: &AtomicBool,
+    cancellation: &RunCancellation,
 ) -> Result<StreamUsage, String> {
     let mut payload = build_openai_payload(request)?;
     payload["stream"] = json!(true);
 
-    let response = client
-        .post("https://api.openai.com/v1/responses")
-        .bearer_auth(secret)
-        .json(&payload)
-        .send()
-        .await
-        .map_err(network_error)?;
+    let response = tokio::select! {
+        _ = cancellation.cancelled() => return Ok(StreamUsage::default()),
+        response = client
+            .post("https://api.openai.com/v1/responses")
+            .bearer_auth(secret)
+            .json(&payload)
+            .send() => response.map_err(network_error)?,
+    };
 
-    stream_response(response, "openai", on_event, cancelled).await
+    stream_response(response, "openai", on_event, cancellation).await
 }
 
 async fn stream_anthropic(
@@ -784,21 +820,22 @@ async fn stream_anthropic(
     request: &ExecutePromptRequest,
     secret: &str,
     on_event: &Channel<ProviderStreamEvent>,
-    cancelled: &AtomicBool,
+    cancellation: &RunCancellation,
 ) -> Result<StreamUsage, String> {
     let mut payload = build_anthropic_payload(request)?;
     payload["stream"] = json!(true);
 
-    let response = client
-        .post("https://api.anthropic.com/v1/messages")
-        .header("x-api-key", secret)
-        .header("anthropic-version", ANTHROPIC_VERSION)
-        .json(&payload)
-        .send()
-        .await
-        .map_err(network_error)?;
+    let response = tokio::select! {
+        _ = cancellation.cancelled() => return Ok(StreamUsage::default()),
+        response = client
+            .post("https://api.anthropic.com/v1/messages")
+            .header("x-api-key", secret)
+            .header("anthropic-version", ANTHROPIC_VERSION)
+            .json(&payload)
+            .send() => response.map_err(network_error)?,
+    };
 
-    stream_response(response, "anthropic", on_event, cancelled).await
+    stream_response(response, "anthropic", on_event, cancellation).await
 }
 
 async fn stream_google(
@@ -806,22 +843,23 @@ async fn stream_google(
     request: &ExecutePromptRequest,
     secret: &str,
     on_event: &Channel<ProviderStreamEvent>,
-    cancelled: &AtomicBool,
+    cancellation: &RunCancellation,
 ) -> Result<StreamUsage, String> {
     let url = format!(
         "https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse",
         request.model
     );
 
-    let response = client
-        .post(url)
-        .header("x-goog-api-key", secret)
-        .json(&build_google_payload(request)?)
-        .send()
-        .await
-        .map_err(network_error)?;
+    let response = tokio::select! {
+        _ = cancellation.cancelled() => return Ok(StreamUsage::default()),
+        response = client
+            .post(url)
+            .header("x-goog-api-key", secret)
+            .json(&build_google_payload(request)?)
+            .send() => response.map_err(network_error)?,
+    };
 
-    stream_response(response, "google", on_event, cancelled).await
+    stream_response(response, "google", on_event, cancellation).await
 }
 
 fn network_error(error: reqwest::Error) -> String {
@@ -909,7 +947,7 @@ pub async fn stream_provider_prompt(
         .build()
         .map_err(|error| error.to_string())?;
 
-    let cancelled = Arc::new(AtomicBool::new(false));
+    let cancellation = Arc::new(RunCancellation::default());
     {
         let mut runs = state
             .runs
@@ -920,7 +958,7 @@ pub async fn stream_provider_prompt(
             return Err("A run with this id already exists.".to_string());
         }
 
-        runs.insert(run_id.clone(), Arc::clone(&cancelled));
+        runs.insert(run_id.clone(), Arc::clone(&cancellation));
     }
 
     let _ = on_event.send(ProviderStreamEvent::Started {
@@ -928,9 +966,9 @@ pub async fn stream_provider_prompt(
     });
 
     let result = match provider {
-        "openai" => stream_openai(&client, &request, &secret, &on_event, &cancelled).await,
-        "anthropic" => stream_anthropic(&client, &request, &secret, &on_event, &cancelled).await,
-        "google" => stream_google(&client, &request, &secret, &on_event, &cancelled).await,
+        "openai" => stream_openai(&client, &request, &secret, &on_event, &cancellation).await,
+        "anthropic" => stream_anthropic(&client, &request, &secret, &on_event, &cancellation).await,
+        "google" => stream_google(&client, &request, &secret, &on_event, &cancellation).await,
         _ => unreachable!(),
     };
 
@@ -938,7 +976,7 @@ pub async fn stream_provider_prompt(
         runs.remove(&run_id);
     }
 
-    let was_cancelled = cancelled.load(Ordering::Relaxed);
+    let was_cancelled = cancellation.is_cancelled();
 
     match result {
         Ok(usage) => {
@@ -969,11 +1007,11 @@ pub fn cancel_provider_stream(
         .lock()
         .map_err(|_| "Runtime state is unavailable.".to_string())?;
 
-    let Some(cancelled) = runs.get(&run_id) else {
+    let Some(cancellation) = runs.get(&run_id) else {
         return Ok(false);
     };
 
-    cancelled.store(true, Ordering::Relaxed);
+    cancellation.cancel();
     Ok(true)
 }
 
