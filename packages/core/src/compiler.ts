@@ -2,14 +2,23 @@ import { inspectPrompt } from "./inspector"
 import { getModel } from "./models"
 import { buildPromptIR, type PromptIRBlock } from "./prompt-ir"
 import { getSurface, resolveCharacterLimit } from "./registry"
-import type { CompileRequest, CompileResult, PromptSurface } from "./types"
+import type {
+  CompileRequest,
+  CompileResult,
+  ModelDefinition,
+  PromptSurface
+} from "./types"
 
 function indexFor(order: readonly string[], id: string): number {
   const index = order.indexOf(id)
   return index === -1 ? order.length : index
 }
 
-function orderBlocks(blocks: PromptIRBlock[], surface: PromptSurface): PromptIRBlock[] {
+function orderBlocks(
+  blocks: PromptIRBlock[],
+  surface: PromptSurface,
+  model: ModelDefinition | null
+): PromptIRBlock[] {
   const userOrder = [
     "task",
     "context",
@@ -25,6 +34,23 @@ function orderBlocks(blocks: PromptIRBlock[], surface: PromptSurface): PromptIRB
     "workflow",
     "communication",
     "writing"
+  ] as const
+
+  const gemini3UserOrder = [
+    "context",
+    "output",
+    "constraints",
+    "rules",
+    "role",
+    "objective",
+    "strategy",
+    "accuracy",
+    "research",
+    "tools",
+    "workflow",
+    "communication",
+    "writing",
+    "task"
   ] as const
 
   const instructionOrder = [
@@ -44,7 +70,17 @@ function orderBlocks(blocks: PromptIRBlock[], surface: PromptSurface): PromptIRB
     "writing"
   ] as const
 
-  const order = surface.instructionRole === "user" ? userOrder : instructionOrder
+  const isGemini3UserPrompt =
+    surface.instructionRole === "user" &&
+    model?.provider === "google" &&
+    model.id.startsWith("gemini-3")
+
+  const order =
+    surface.instructionRole !== "user"
+      ? instructionOrder
+      : isGemini3UserPrompt
+        ? gemini3UserOrder
+        : userOrder
 
   return [...blocks].sort(
     (a, b) => indexFor(order, a.id) - indexFor(order, b.id)
@@ -83,7 +119,7 @@ export function compilePrompt(request: CompileRequest): CompileResult {
   const model = request.target.modelId ? getModel(request.target.modelId) : null
   const limit = resolveCharacterLimit(surface, request.target.plan)
   const ir = buildPromptIR(request.profile, request.brief)
-  const blocks = orderBlocks(ir.blocks, surface)
+  const blocks = orderBlocks(ir.blocks, surface, model)
   const optimization = request.target.optimization ?? "balanced"
   const variants = new Map<string, "full" | "compact">(
     blocks.map((block) => [
