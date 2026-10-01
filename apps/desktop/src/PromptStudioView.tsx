@@ -164,6 +164,7 @@ export default function PromptStudioView({
   const [copied, setCopied] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [runInputs, setRunInputs] = useState<Record<string, string>>({})
+  const [runOutputLimits, setRunOutputLimits] = useState<Record<string, string>>({})
   const [executing, setExecuting] = useState(false)
   const [activeRunId, setActiveRunId] = useState<string | null>(null)
   const invalidatedRunIds = useRef<Set<string>>(new Set())
@@ -364,6 +365,29 @@ export default function PromptStudioView({
   const requiresRuntimeInput = activeSurface.instructionRole !== "user"
   const supportsConversation = isApiTarget && requiresRuntimeInput
   const runtimeInput = runInputs[activeDraft.id] ?? ""
+  const outputLimitInput = runOutputLimits[activeDraft.id] ?? ""
+  const parsedOutputLimit =
+    outputLimitInput.trim() === "" ? null : Number(outputLimitInput)
+  const outputLimitValid =
+    parsedOutputLimit === null ||
+    (Number.isInteger(parsedOutputLimit) &&
+      parsedOutputLimit > 0 &&
+      (activeModel.maxOutputTokens === null ||
+        parsedOutputLimit <= activeModel.maxOutputTokens))
+  const requestedMaxOutputTokens =
+    outputLimitValid && parsedOutputLimit !== null
+      ? parsedOutputLimit
+      : undefined
+  const outputLimitError =
+    outputLimitValid
+      ? null
+      : activeModel.maxOutputTokens === null
+        ? "Max output tokens must be a positive whole number."
+        : "Max output tokens must be between 1 and " +
+          activeModel.maxOutputTokens.toLocaleString() +
+          " for " +
+          activeModel.label +
+          "."
   const conversationKey = createConversationSessionKey(
     activeDraft.id,
     activeModel.id,
@@ -408,6 +432,7 @@ export default function PromptStudioView({
     isApiTarget &&
     !hasBlockingDiagnostic &&
     !inputExceedsContext &&
+    outputLimitValid &&
     (activeSurface.instructionRole !== "user" ||
       activeDraft.brief.goal.trim().length > 0) &&
     (!requiresRuntimeInput || runtimeInput.trim().length > 0)
@@ -721,6 +746,9 @@ export default function PromptStudioView({
       model: runModelId,
       instructionRole: runInstructionRole,
       prompt: runPromptText,
+      ...(requestedMaxOutputTokens !== undefined
+        ? { maxOutputTokens: requestedMaxOutputTokens }
+        : {}),
       ...(requiresRuntimeInput ? { runtimeInput: runRuntimeInput } : {}),
       ...(supportsConversation ? { history: runHistory } : {})
     }
@@ -1445,6 +1473,39 @@ export default function PromptStudioView({
                   />
                 </div>
               ) : null}
+
+              <div className="field">
+                <div className="field-heading">
+                  <label>Max output tokens</label>
+                  <span>
+                    {activeModel.maxOutputTokens === null
+                      ? "Optional"
+                      : "Optional · model max " +
+                        activeModel.maxOutputTokens.toLocaleString()}
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min="1"
+                  max={activeModel.maxOutputTokens ?? undefined}
+                  step="1"
+                  value={outputLimitInput}
+                  placeholder={
+                    activeModel.provider === "anthropic"
+                      ? "16000 runtime default"
+                      : "Provider default"
+                  }
+                  onChange={(event) =>
+                    setRunOutputLimits((current) => ({
+                      ...current,
+                      [activeDraft.id]: event.target.value
+                    }))
+                  }
+                />
+                {outputLimitError ? (
+                  <p className="runtime-error">{outputLimitError}</p>
+                ) : null}
+              </div>
 
               {executionError ? (
                 <p className="runtime-error">{executionError}</p>

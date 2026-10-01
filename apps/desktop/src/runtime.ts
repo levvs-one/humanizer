@@ -11,6 +11,7 @@ export interface ExecutePromptRequest {
   model: string
   instructionRole: "persistent" | "developer" | "system" | "user"
   prompt: string
+  maxOutputTokens?: number
   runtimeInput?: string
   history?: RuntimeMessage[]
 }
