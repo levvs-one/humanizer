@@ -238,7 +238,7 @@ export default function SettingsView() {
       setUtcDay(currentUtcDay())
     }
 
-    function scheduleRollover(): ReturnType<typeof window.setTimeout> {
+    function scheduleRollover(): number {
       const now = new Date()
       const nextUtcMidnight = Date.UTC(
         now.getUTCFullYear(),
