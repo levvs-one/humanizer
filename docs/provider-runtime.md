@@ -88,6 +88,17 @@ Official references:
 
 Verified: 2026-09-30
 
+## Output budget
+
+Prompt Studio can optionally set a maximum output-token budget for an API run.
+
+- OpenAI Responses receives `max_output_tokens`.
+- Anthropic Messages receives `max_tokens`.
+- Gemini receives `generationConfig.maxOutputTokens`.
+- Leaving the field blank preserves provider behavior; Anthropic keeps Humanizer's existing 16,000-token runtime default because the Messages API requires `max_tokens`.
+- Studio rejects non-positive values and values above the selected model's source-backed `maxOutputTokens` metadata.
+- Exact input token-count requests intentionally omit output-generation settings.
+
 ## Conversation history
 
 Instruction-style API targets can carry local multi-turn history.
