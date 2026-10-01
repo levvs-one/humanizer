@@ -16,8 +16,8 @@ export { compilePrompt } from "./compiler"
 export { buildTargetExport } from "./exporter"
 export type { TargetExportArtifact, TargetExportFormat } from "./exporter"
 export { inspectPrompt } from "./inspector"
-export { findStaleTargetSources } from "./freshness"
-export type { StaleTargetSource } from "./freshness"
+export { findStaleModelSources, findStaleTargetSources } from "./freshness"
+export type { StaleModelSource, StaleTargetSource } from "./freshness"
 export {
   applyBehaviorOverrideLayers,
   applyBehaviorOverrides,
