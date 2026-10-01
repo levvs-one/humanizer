@@ -371,9 +371,11 @@ async function compile(options: Options): Promise<void> {
 
   const { effectiveProfile } = resolveBehaviorScopes({
     profile: profileDocument.profile,
-    project: projectDocument,
-    modelId,
-    taskOverrides: draftDocument?.behaviorOverrides
+    ...(projectDocument ? { project: projectDocument } : {}),
+    ...(modelId ? { modelId } : {}),
+    ...(draftDocument
+      ? { taskOverrides: draftDocument.behaviorOverrides }
+      : {})
   })
 
   const brief = resolveBrief(options, draftDocument?.brief)
