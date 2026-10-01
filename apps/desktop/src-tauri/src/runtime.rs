@@ -687,7 +687,9 @@ fn google_stream_citations(event: &Value) -> Vec<RuntimeCitation> {
     google_citations(event)
 }
 
-fn parse_openai(body: &Value) -> Result<(String, Option<u64>, Option<u64>), String> {
+fn parse_openai(
+    body: &Value,
+) -> Result<(String, Option<u64>, Option<u64>, Vec<RuntimeCitation>), String> {
     let text = body
         .get("output")
         .and_then(Value::as_array)
@@ -707,10 +709,12 @@ fn parse_openai(body: &Value) -> Result<(String, Option<u64>, Option<u64>), Stri
     let input_tokens = body.pointer("/usage/input_tokens").and_then(Value::as_u64);
     let output_tokens = body.pointer("/usage/output_tokens").and_then(Value::as_u64);
 
-    Ok((text, input_tokens, output_tokens))
+    Ok((text, input_tokens, output_tokens, openai_citations(body)))
 }
 
-fn parse_anthropic(body: &Value) -> Result<(String, Option<u64>, Option<u64>), String> {
+fn parse_anthropic(
+    body: &Value,
+) -> Result<(String, Option<u64>, Option<u64>, Vec<RuntimeCitation>), String> {
     let text = body
         .get("content")
         .and_then(Value::as_array)
@@ -728,10 +732,12 @@ fn parse_anthropic(body: &Value) -> Result<(String, Option<u64>, Option<u64>), S
     let input_tokens = body.pointer("/usage/input_tokens").and_then(Value::as_u64);
     let output_tokens = body.pointer("/usage/output_tokens").and_then(Value::as_u64);
 
-    Ok((text, input_tokens, output_tokens))
+    Ok((text, input_tokens, output_tokens, anthropic_citations(body)))
 }
 
-fn parse_google(body: &Value) -> Result<(String, Option<u64>, Option<u64>), String> {
+fn parse_google(
+    body: &Value,
+) -> Result<(String, Option<u64>, Option<u64>, Vec<RuntimeCitation>), String> {
     let text = body
         .pointer("/candidates/0/content/parts")
         .and_then(Value::as_array)
@@ -752,7 +758,7 @@ fn parse_google(body: &Value) -> Result<(String, Option<u64>, Option<u64>), Stri
         .pointer("/usageMetadata/candidatesTokenCount")
         .and_then(Value::as_u64);
 
-    Ok((text, input_tokens, output_tokens))
+    Ok((text, input_tokens, output_tokens, google_citations(body)))
 }
 
 async fn execute_openai(
@@ -771,7 +777,7 @@ async fn execute_openai(
     )
     .await?;
 
-    let (text, input_tokens, output_tokens) = parse_openai(&body)?;
+    let (text, input_tokens, output_tokens, citations) = parse_openai(&body)?;
 
     Ok(ExecutePromptResponse {
         provider: "openai".to_string(),
@@ -779,6 +785,7 @@ async fn execute_openai(
         text,
         input_tokens,
         output_tokens,
+        citations,
     })
 }
 
@@ -799,7 +806,7 @@ async fn execute_anthropic(
     )
     .await?;
 
-    let (text, input_tokens, output_tokens) = parse_anthropic(&body)?;
+    let (text, input_tokens, output_tokens, citations) = parse_anthropic(&body)?;
 
     Ok(ExecutePromptResponse {
         provider: "anthropic".to_string(),
@@ -807,6 +814,7 @@ async fn execute_anthropic(
         text,
         input_tokens,
         output_tokens,
+        citations,
     })
 }
 
@@ -831,7 +839,7 @@ async fn execute_google(
     )
     .await?;
 
-    let (text, input_tokens, output_tokens) = parse_google(&body)?;
+    let (text, input_tokens, output_tokens, citations) = parse_google(&body)?;
 
     Ok(ExecutePromptResponse {
         provider: "google".to_string(),
@@ -839,6 +847,7 @@ async fn execute_google(
         text,
         input_tokens,
         output_tokens,
+        citations,
     })
 }
 
