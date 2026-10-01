@@ -1021,7 +1021,7 @@ mod tests {
         anthropic_stream_event, build_anthropic_count_payload, build_anthropic_payload,
         build_google_count_payload, build_google_payload, build_openai_payload,
         google_stream_event, openai_stream_event, parse_anthropic, parse_google, parse_openai,
-        ExecutePromptRequest, RuntimeMessage, SseDecoder, StreamUsage,
+        ExecutePromptRequest, RunCancellation, RuntimeMessage, SseDecoder, StreamUsage,
     };
     use serde_json::json;
 
@@ -1035,6 +1035,15 @@ mod tests {
             runtime_input: runtime_input.map(str::to_string),
             history: Vec::new(),
         }
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn cancellation_signal_wakes_waiters_and_stays_cancelled() {
+        let cancellation = RunCancellation::default();
+        cancellation.cancel();
+
+        cancellation.cancelled().await;
+        assert!(cancellation.is_cancelled());
     }
 
     #[test]
