@@ -128,6 +128,47 @@ describe("task-specific compilation", () => {
     expect(result.model?.id).toBe("gpt-5.6-sol")
   })
 
+  it("puts Gemini 3 context before the final task in user prompts", () => {
+    const result = compilePrompt({
+      profile,
+      brief: {
+        goal: "Identify the smallest safe fix.",
+        context: "The repository contains a large existing implementation.",
+        output: "Return the diagnosis and patch plan.",
+        constraints: "Preserve public behavior."
+      },
+      target: {
+        surfaceId: "gemini-api-user",
+        modelId: "gemini-3.8-flash"
+      }
+    })
+
+    const contextIndex = result.text.indexOf("Context\n")
+    const taskIndex = result.text.indexOf("Task\n")
+
+    expect(contextIndex).toBe(0)
+    expect(taskIndex).toBeGreaterThan(contextIndex)
+    expect(result.text.trim().endsWith("Identify the smallest safe fix.")).toBe(true)
+  })
+
+  it("keeps non-Gemini user prompts task-first", () => {
+    const result = compilePrompt({
+      profile,
+      brief: {
+        goal: "Identify the smallest safe fix.",
+        context: "The repository contains a large existing implementation.",
+        output: "",
+        constraints: ""
+      },
+      target: {
+        surfaceId: "openai-api-user",
+        modelId: "gpt-5.6-sol"
+      }
+    })
+
+    expect(result.text.startsWith("Task\nIdentify the smallest safe fix.")).toBe(true)
+  })
+
   it("warns when a model and target provider do not match", () => {
     const result = compilePrompt({
       profile,
