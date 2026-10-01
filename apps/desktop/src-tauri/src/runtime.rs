@@ -993,6 +993,7 @@ mod tests {
             model: "model-id".to_string(),
             instruction_role: role.to_string(),
             prompt: "Compiled prompt".to_string(),
+            max_output_tokens: None,
             runtime_input: runtime_input.map(str::to_string),
             history: Vec::new(),
         }
@@ -1065,6 +1066,35 @@ mod tests {
     }
 
     #[test]
+    fn provider_payloads_apply_custom_output_budgets() {
+        let mut openai = request("openai", "developer", Some("Review this."));
+        openai.max_output_tokens = Some(12_345);
+        let openai_payload = build_openai_payload(&openai).unwrap();
+        assert_eq!(openai_payload["max_output_tokens"], 12_345);
+
+        let mut anthropic = request("anthropic", "system", Some("Review this."));
+        anthropic.max_output_tokens = Some(23_456);
+        let anthropic_payload = build_anthropic_payload(&anthropic).unwrap();
+        assert_eq!(anthropic_payload["max_tokens"], 23_456);
+
+        let mut google = request("google", "system", Some("Review this."));
+        google.max_output_tokens = Some(34_567);
+        let google_payload = build_google_payload(&google).unwrap();
+        assert_eq!(
+            google_payload["generationConfig"]["maxOutputTokens"],
+            34_567
+        );
+    }
+
+    #[test]
+    fn zero_output_budget_is_rejected() {
+        let mut request = request("openai", "developer", Some("Review this."));
+        request.max_output_tokens = Some(0);
+
+        assert!(build_openai_payload(&request).is_err());
+    }
+
+    #[test]
     fn anthropic_maps_system_and_user_fields() {
         let payload =
             build_anthropic_payload(&request("anthropic", "system", Some("Review this."))).unwrap();
@@ -1108,6 +1138,9 @@ mod tests {
             payload["generateContentRequest"]["contents"][0]["parts"][0]["text"],
             "Review this."
         );
+        assert!(payload["generateContentRequest"]
+            .get("generationConfig")
+            .is_none());
     }
 
     #[test]
