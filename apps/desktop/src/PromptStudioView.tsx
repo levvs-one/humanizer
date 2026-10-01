@@ -816,6 +816,7 @@ export default function PromptStudioView({
 
     const runId = createRunId()
     let completedText = ""
+    let completedCitations: RuntimeCitation[] = []
     let runFailed = false
 
     setExecuting(true)
@@ -861,6 +862,44 @@ export default function PromptStudioView({
                 response: {
                   ...current.response,
                   text: current.response.text + event.data.text
+                }
+              }
+            })
+            return
+          }
+
+          if (event.event === "citation") {
+            if (
+              !completedCitations.some(
+                (citation) => citation.url === event.data.url
+              )
+            ) {
+              completedCitations = [...completedCitations, event.data]
+            }
+
+            setExecution((current) => {
+              if (
+                !current ||
+                current.draftId !== runDraftId ||
+                current.modelId !== runModelId ||
+                current.surfaceId !== runSurfaceId
+              ) {
+                return current
+              }
+
+              if (
+                current.response.citations.some(
+                  (citation) => citation.url === event.data.url
+                )
+              ) {
+                return current
+              }
+
+              return {
+                ...current,
+                response: {
+                  ...current.response,
+                  citations: [...current.response.citations, event.data]
                 }
               }
             })
@@ -923,7 +962,13 @@ export default function PromptStudioView({
                   [
                     ...existing,
                     { role: "user", text: runRuntimeInput },
-                    { role: "assistant", text: completedText.trim() }
+                    {
+                      role: "assistant",
+                      text: completedText.trim(),
+                      ...(completedCitations.length > 0
+                        ? { citations: completedCitations }
+                        : {})
+                    }
                   ]
                 )
               })
