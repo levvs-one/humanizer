@@ -1,9 +1,15 @@
 import { Channel, invoke } from "@tauri-apps/api/core"
 import type { ProviderId } from "@humanizer/core"
 
+export interface RuntimeCitation {
+  url: string
+  title: string
+}
+
 export interface RuntimeMessage {
   role: "user" | "assistant"
   text: string
+  citations?: RuntimeCitation[]
 }
 
 export interface ExecutePromptRequest {
@@ -12,6 +18,7 @@ export interface ExecutePromptRequest {
   instructionRole: "persistent" | "developer" | "system" | "user"
   prompt: string
   maxOutputTokens?: number
+  webSearch?: boolean
   runtimeInput?: string
   history?: RuntimeMessage[]
 }
@@ -22,6 +29,7 @@ export interface ExecutePromptResponse {
   text: string
   inputTokens: number | null
   outputTokens: number | null
+  citations: RuntimeCitation[]
 }
 
 export interface TokenCountResponse {
@@ -33,6 +41,7 @@ export interface TokenCountResponse {
 export type ProviderStreamEvent =
   | { event: "started"; data: { runId: string } }
   | { event: "delta"; data: { text: string } }
+  | { event: "citation"; data: RuntimeCitation }
   | {
       event: "usage"
       data: {
