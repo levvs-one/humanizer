@@ -57,6 +57,7 @@ The implementation is a TypeScript monorepo with a Tauri desktop shell, React in
 ```text
 apps/
   desktop/        Tauri desktop application
+  cli/            Node.js command-line compiler for terminals and CI
 
 packages/
   core/           Behavior model, registry, compiler, validation
@@ -69,6 +70,7 @@ docs/
   export-formats.md
   provider-runtime.md
   profiles.md
+  cli.md
 ```
 
 ## Development
@@ -101,6 +103,8 @@ Humanizer is in alpha, but the core desktop workflow is operational end to end.
 Profiles, project scopes, prompt drafts, and bounded conversation sessions persist locally. Behavior supports live inheritance, reusable hard rules, structured tool policy, project-level overrides, and narrower task overrides. Prompt Studio compiles against source-backed model and target metadata, reports stale registry entries, inspects and optimizes the result, exports target-aware artifacts, performs supported token preflight, and executes OpenAI, Anthropic, and Gemini API targets through the native credential boundary with streaming and cancellation.
 
 Instruction-style API targets support local multi-turn continuation. Provider keys remain in the operating-system credential store and are never returned to the React interface.
+
+The `humanizer` CLI exposes the same deterministic compiler for terminals and CI. It can list registry models/targets, compile independent exported profiles, emit target-aware artifacts, and return machine-meaningful exit codes without accessing provider credentials.
 
 Test and Integrations remain intentionally disabled until their underlying workflows are real rather than placeholder screens.
 
